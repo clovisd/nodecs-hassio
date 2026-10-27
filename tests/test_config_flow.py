@@ -56,6 +56,8 @@ def no_setup() -> Iterator[None]:
         ("https://panel.example.lan:443", "https://panel.example.lan"),
         ("https://panel.example.lan:8443/", "https://panel.example.lan:8443"),
         ("https://[2001:db8::1]:8443", "https://[2001:db8::1]:8443"),
+        ("https://panel.example.lan/dashboard", "https://panel.example.lan"),
+        ("panel.example.lan/matches/7?tab=log#top", "https://panel.example.lan"),
     ],
 )
 def test_normalize_url(raw: str, expected: str) -> None:
@@ -65,7 +67,7 @@ def test_normalize_url(raw: str, expected: str) -> None:
 
 @pytest.mark.parametrize(
     "raw",
-    ["", "ftp://panel.example.lan", "https://panel.example.lan/dashboard", "https://"],
+    ["", "   ", "ftp://panel.example.lan", "https://"],
 )
 def test_normalize_url_refuses(raw: str) -> None:
     """Anything that is not the panel's address is refused."""
@@ -153,10 +155,10 @@ async def test_user_flow_errors(
 
 
 async def test_user_flow_bad_url(hass: HomeAssistant) -> None:
-    """A URL with a path is refused on the URL field."""
+    """Something that is not a web address is refused on the URL field."""
     result = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {**USER_INPUT, CONF_URL: "https://panel.example.lan/x"}
+        result["flow_id"], {**USER_INPUT, CONF_URL: "ftp://panel.example.lan"}
     )
     assert result["errors"] == {CONF_URL: "invalid_url"}
 

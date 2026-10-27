@@ -193,8 +193,10 @@ so a new field is a reviewed change.
 - **Backstop poll.** The match query also runs every **1 s** whatever the channel does, so a
   change the panel does not announce, or one made while the channel was reconnecting, shows
   within about a second.
-- **Server status** is read every **10 s** with its own query, because answering it makes the
-  panel probe the game servers; doing that every second would load them during matches.
+- **Server status** is read every **10 s** with its own query and a 10 s timeout, because
+  answering it makes the panel probe the game servers; doing that every second would load them
+  during matches. Its first read may fail without stopping setup (the status sensors start
+  unavailable), so one slow game server never keeps the matches from loading.
 - **Channel drops:** reconnect after 1 s, doubling to at most 30 s, and back to 1 s once
   connected. The 1 s poll carries on meanwhile. "Live updates" shows the state; the drop and the
   recovery are each logged once.
@@ -221,8 +223,9 @@ so a new field is a reviewed change.
 
 Settings → Devices & services → Add integration → **NodeCS**:
 
-- **URL** — `https://panel.example/`. A bare host gets `https://`. A pasted endpoint URL
-  (`…/api/ui/graphql/query`) is accepted. Any other path is refused.
+- **URL** — `https://panel.example/`. A bare host gets `https://`. A pasted page address
+  (`…/dashboard`, `…/api/ui/graphql/query`) is accepted: the path is dropped, because the
+  panel's API paths are absolute from the site root.
 - **Username**, **Password** — the panel login.
 - **Verify SSL certificate** — on by default. The form's description says to untick it for a
   panel with the event's own certificate.

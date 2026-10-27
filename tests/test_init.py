@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import aiohttp
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nodecs import async_remove_config_entry_device
-from custom_components.nodecs.const import DOMAIN
+from custom_components.nodecs.const import DOMAIN, STATUS_TIMEOUT
 
 from .conftest import FakePanel, setup_integration, tick
 from .payloads import BASE, server_json
@@ -128,3 +131,28 @@ async def test_remove_device(
     assert not await remove(
         hass, mock_config_entry, _device(hass, mock_config_entry, "panel")
     )
+
+
+async def test_setup_does_not_wait_for_status(
+    hass: HomeAssistant, panel: FakePanel, mock_config_entry: MockConfigEntry
+) -> None:
+    """A status read that fails (a game server slow to probe) does not block setup."""
+    panel.fail = aiohttp.ClientConnectionError()
+    panel.fail_kind = "status"
+    await setup_integration(hass, mock_config_entry)
+
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    assert hass.states.get("sensor.server_1_status").state == STATE_UNAVAILABLE
+    assert hass.states.get("sensor.server_1_phase").state == "no_match"
+
+
+async def test_status_read_has_its_own_timeout(
+    hass: HomeAssistant, panel: FakePanel, mock_config_entry: MockConfigEntry
+) -> None:
+    """The status read may take longer than the fast path's 3 s."""
+    fetch = AsyncMock(return_value={"SRV-1": "RUNNING_VALID"})
+    with patch("custom_components.nodecs.api.NodeCSClient.fetch_statuses", fetch):
+        await setup_integration(hass, mock_config_entry)
+
+    assert STATUS_TIMEOUT == 10
+    assert fetch.await_args.kwargs["timeout"] == STATUS_TIMEOUT

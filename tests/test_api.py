@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -258,3 +259,49 @@ async def test_open_push_errors(
         pytest.raises(error),
     ):
         await client.open_push()
+
+
+# Everything the panel's schema could leak, and that no query may ever ask for.
+SECRETS = {
+    "config",
+    "password",
+    "livePassword",
+    "rconPassword",
+    "tvPassword",
+    "tvPassword1",
+    "tvRelayPassword",
+    "logsWebSocketUrl",
+    "ip",
+    "port",
+    "apiKey",
+    "buttonApiKey",
+    "basicAuthPass",
+}
+
+
+def _fields(query: str) -> set[str]:
+    return set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", query))
+
+
+def test_match_query_asks_only_for_what_is_shown() -> None:
+    """A new field in the match query is a reviewed change, and never a secret."""
+    assert _fields(MATCH_QUERY) == {
+        "query", "HomeAssistantMatches", "cs2Servers", "id", "name", "match",
+        "phase", "bestOfX", "bestOfXAScore", "bestOfXBScore", "teamA", "teamB",
+        "logoUrl", "map", "teamAReady", "teamBReady", "teamAScore", "teamBScore",
+        "teamATimeoutsUsed", "teamBTimeoutsUsed", "teamATimeoutsLeft",
+        "teamBTimeoutsLeft", "assignedAt", "liveAt", "endedAt", "pauses", "reason",
+        "startedAt", "team", "buttonBindings", "buttonID", "action",
+    }  # fmt: skip
+    assert not _fields(MATCH_QUERY) & SECRETS
+
+
+def test_status_query_asks_only_for_status() -> None:
+    """The status query names the server and its status, nothing else."""
+    assert _fields(STATUS_QUERY) == {
+        "query",
+        "HomeAssistantStatus",
+        "cs2Servers",
+        "id",
+        "status",
+    }

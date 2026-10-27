@@ -38,7 +38,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: NodeCSConfigEntry) -> bo
     matches = MatchCoordinator(hass, entry, client)
     status = StatusCoordinator(hass, entry, client)
     await matches.async_config_entry_first_refresh()
-    await status.async_config_entry_first_refresh()
+    # Answering status makes the panel probe every game server; one slow server
+    # must not keep the matches from loading, so its first read may fail.
+    await status.async_refresh()
 
     push = PushListener(hass, entry, client, matches.async_request_refresh)
     entry.runtime_data = NodeCSRuntime(client, matches, status, push)

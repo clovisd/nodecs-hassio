@@ -21,6 +21,7 @@ from .const import (
     REFRESH_COOLDOWN,
     STALE_AFTER,
     STATUS_INTERVAL,
+    STATUS_TIMEOUT,
 )
 from .models import Server
 
@@ -133,4 +134,4 @@ class StatusCoordinator(NodeCSCoordinator[dict[str, str | None]]):
         super().__init__(hass, entry, client, "status", STATUS_INTERVAL)
 
     async def _fetch(self) -> dict[str, str | None]:
-        return await self.client.fetch_statuses()
+        return await self.client.fetch_statuses(timeout=STATUS_TIMEOUT)

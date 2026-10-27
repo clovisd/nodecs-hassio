@@ -74,7 +74,7 @@ and restart.
 Settings → Devices & services → **Add integration** → **NodeCS**, then enter:
 
 - **URL**: the panel's address, for example `https://panel.example.lan`. A bare host gets
-  `https://`, and a pasted `…/api/ui/graphql/query` address works too.
+  `https://`, and a pasted dashboard address works too.
 - **Username** and **Password**: the login you use for the panel's web page.
 - **Verify SSL certificate**: untick it if the panel uses your event's own certificate, which
   Home Assistant doesn't trust.

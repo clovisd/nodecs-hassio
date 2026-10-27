@@ -238,4 +238,5 @@ class NodeCSStatusSensor(NodeCSServerEntity[StatusCoordinator], SensorEntity):
     @property
     def native_value(self) -> str | None:
         """The status; the panel's UNKNOWN is Home Assistant's unknown."""
-        return _option(self.coordinator.data.get(self.server_id), STATUSES, "status")
+        statuses = self.coordinator.data or {}
+        return _option(statuses.get(self.server_id), STATUSES, "status")

@@ -24,7 +24,7 @@ from .api import (
     NodeCSConnectionError,
     NodeCSResponseError,
 )
-from .const import DOMAIN, GRAPHQL_PATH, SETUP_TIMEOUT
+from .const import DOMAIN, SETUP_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,8 +50,9 @@ RECONFIGURE_SCHEMA = vol.Schema(
 def normalize_url(raw: str) -> str:
     """The panel's scheme, host and port from whatever was typed or pasted.
 
-    A bare host gets https. The API's own path is accepted, so a pasted endpoint
-    works; any other path is refused.
+    A bare host gets https. Any page path, query or fragment is dropped: the
+    panel's API paths are absolute from the site root, so a pasted dashboard
+    or endpoint address points at the same panel.
     """
     text = raw.strip()
     if not text:
@@ -61,11 +62,6 @@ def normalize_url(raw: str) -> str:
     url = URL(text)
     if url.scheme not in _DEFAULT_PORTS or not url.host:
         raise ValueError(f"not a panel address: {raw!r}")
-    path = url.path.rstrip("/")
-    if path in (GRAPHQL_PATH, GRAPHQL_PATH.rstrip("/")):
-        path = ""
-    if path or url.query_string or url.fragment:
-        raise ValueError(f"a page, not the panel's address: {raw!r}")
     port = url.explicit_port
     if port == _DEFAULT_PORTS[url.scheme]:
         port = None
