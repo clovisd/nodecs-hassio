@@ -33,7 +33,11 @@ about the server(s) visually, and usable with other automations (like blinkybeac
   logos and map image.
 - Every value is something an automation can trigger on or test in a condition. "Team A started a
   tactical timeout" is a plain state trigger.
-- Values are never stale: when the panel stops answering, the entities go unavailable.
+- **Lowest latency and highest reliability** (owner, 2026-10-27: "the priority with this is
+  lowest latency possible, and highest reliability"). A change on the panel shows in Home
+  Assistant as soon as the panel announces it, and within 1 s when it does not.
+- Values are never stale for long: when the panel stops answering, the entities go unavailable
+  (after a short grace that keeps one dropped request from flapping every entity, §6).
 - Works with the panel's own certificate (the event's internal CA, untrusted by HA).
 
 **Non-goals (this version)**
@@ -59,10 +63,20 @@ secret fields).
 - **Login:** HTTP Basic Auth in front of the panel (nginx, `realm="Restricted Content"`). A wrong
   login answers `401` with an HTML body. It is the panel's only account: the admin login.
 - **Errors:** `200` with `{"errors": [{"message": ...}], "data": null}`.
-- **No subscriptions** (`subscriptionType` is null). State has to be polled.
+- **No GraphQL subscriptions** (`subscriptionType` is null), **but a push channel:** the panel's
+  own UI opens `wss://<panel>/api/ui/notifications/subscribe` (same Basic Auth; `401` without it)
+  and receives JSON text messages: `{"type": "match_updated", …}`, on which it refetches its
+  match queries, and `{"type": "notification", "payload": {"id", "kind", "message", "ok",
+  "title"}}` (kinds seen in the UI: `tech_pause`, `overtime`, `gg_quick`, `relay`). The UI does
+  not poll; it reconnects 1 s after the channel closes. On staging it connected in about 400 ms
+  and a `notification` arrived within 30 s. Not yet observed: which changes send
+  `match_updated` (staging was idle), so the design does not rely on it alone.
 - **Certificate:** not trusted by curl or Home Assistant by default, on the event panel and on the
   owner's staging panel alike.
-- **Speed:** the integration's query answers in about 150 ms (4 servers, no matches).
+- **Speed:** the full query answers in about 150 ms on the event LAN. On staging, over the
+  internet on a kept-alive connection (15 samples each): ids only 74 ms median, the match query
+  143 ms, `status` alone 207 ms. `status` costs the panel extra work (it appears to ask each game
+  server), so it is kept off the fast path (§6).
 - **Logos:** `Team.logoUrl` and `CS2Map.logoUrl` are absolute panel URLs
   (`/api/ui/teams/{id}/logo`, `/api/ui/cs2/maps/{id}/logo`) behind the same login; with it they
   answer `200 image/png`. A browser showing a Home Assistant dashboard cannot load them directly.
@@ -91,8 +105,10 @@ left is not a constant: the admins can take a timeout away as a penalty (owner, 
 
 ## 4. What the owner sees in Home Assistant
 
-One config entry per panel. One device per game server, named after the server (`server_a1`),
-manufacturer "NodeCS", model "CS2 server", with a link to the panel.
+One config entry per panel. A **panel device** (named after the entry, model "Panel") carries
+one diagnostic binary sensor, **Live updates** (connectivity): on while the push channel is open.
+One device per game server, named after the server (`server_a1`), manufacturer "NodeCS", model
+"CS2 server", linked to the panel device (`via_device`) and to the panel's web page.
 
 Entities per server (`has_entity_name`, so `sensor.server_a1_team_a_score`). "No match" means the
 server's `match` is null.
@@ -140,12 +156,14 @@ ULIDs and do not change when a server is renamed; the device name follows the pa
 
 ## 5. The query
 
-One query per poll, for all servers. It names every field it reads and nothing else:
+Two queries, each for all servers. They name every field they read and nothing else.
+
+The match query (the fast path):
 
 ```graphql
-query HomeAssistantState {
+query HomeAssistantMatches {
   cs2Servers {
-    id name status
+    id name
     match {
       id phase bestOfX bestOfXAScore bestOfXBScore
       teamA { id name logoUrl } teamB { id name logoUrl }
@@ -160,24 +178,42 @@ query HomeAssistantState {
 }
 ```
 
-It never asks for `config`, `password`, `livePassword`, `rconPassword`, `tvPassword*`,
+The status query (the slow path): `query HomeAssistantStatus { cs2Servers { id status } }`.
+
+Neither ever asks for `config`, `password`, `livePassword`, `rconPassword`, `tvPassword*`,
 `tvRelayPassword`, `logsWebSocketUrl`, or the server's `ip` and `port`. Tests pin the query text
 so a new field is a reviewed change.
 
 ## 6. Behaviour
 
-- **Polling:** every 2 seconds. A tactical timeout lasts about 30 s; an automation that lights a
-  beacon should react within 2 s. The query costs the panel about 150 ms.
-- **Panel unreachable, timeout (10 s), or a reply that is not the expected JSON:** every entity
-  goes unavailable until the next good poll. Logged once by Home Assistant's coordinator, not
-  every 2 s.
-- **401 while polling:** Home Assistant starts its re-authentication flow ("NodeCS needs its
-  login again"); the entities go unavailable until it is done.
-- **GraphQL `errors`:** treated as a failed poll; the first message is in the log.
-- **Servers added on the panel:** their devices and entities are added at the next poll.
+- **Push first.** The integration keeps the push channel open. Every message on it
+  (`match_updated` or `notification`) triggers an immediate read of the match query; messages
+  that arrive while a read is running are covered by one more read straight after it (a 0.3 s
+  coalescing window, not Home Assistant's default 10 s).
+- **Backstop poll.** The match query also runs every **1 s** whatever the channel does, so a
+  change the panel does not announce, or one made while the channel was reconnecting, shows
+  within about a second.
+- **Server status** is read every **10 s** with its own query, because answering it makes the
+  panel probe the game servers; doing that every second would load them during matches.
+- **Channel drops:** reconnect after 1 s, doubling to at most 30 s, and back to 1 s once
+  connected. The 1 s poll carries on meanwhile. "Live updates" shows the state; the drop and the
+  recovery are each logged once.
+- **Timeouts:** 3 s per request (the panel answers in about 150 ms on the LAN); 10 s for the
+  setup form's first contact.
+- **Transient failures:** a failed read keeps the last values for up to **6 s**, so one dropped
+  request does not flip every entity to unavailable and back, which would re-fire automations
+  that trigger on a state. After 6 s without a good read, every entity of that query goes
+  unavailable until the next good read.
+- **Connections are reused:** Home Assistant's shared HTTP session keeps them alive, so a poll
+  does not pay for a TLS handshake.
+- **401** on any read or on the channel: Home Assistant starts its re-authentication flow ("NodeCS
+  needs its login again"); the entities go unavailable until it is done. No grace for a 401.
+- **GraphQL `errors`:** a failed read; the first message is in the log.
+- **Servers added on the panel:** their devices and entities are added at the next match read.
 - **Servers deleted on the panel:** their entities go unavailable; the device can then be deleted
   from Home Assistant's device page.
-- **Shutdown or removal:** nothing to clean up; the integration holds no state on the panel.
+- **Unload, reload, shutdown:** the channel is closed and the polls stop; the integration holds no
+  state on the panel.
 
 ## 7. Setup
 
@@ -231,7 +267,10 @@ integration at that point.
   title "NodeCS" follow from it (the casing is the builder's call).
 - **No product or event names in the public repo:** it says "the panel", never the panel's
   product name, the event, or its hostnames. The fixtures use made-up teams and hosts.
-- **Poll every 2 s,** not configurable (Home Assistant's guidance for integrations).
+- **Push plus a 1 s backstop poll, status every 10 s, a 6 s grace, 3 s timeouts,** none of them
+  configurable (Home Assistant's guidance for integrations). These follow the owner's latency and
+  reliability priority and the measurements in §3.
+- **A panel device with a "Live updates" sensor,** so falling back to polling is visible.
 - **Team A / Team B** naming rather than home / away, because the panel's sides are A and B.
 - **No-match values are unknown**, not unavailable: unavailable is kept for "the panel is not
   answering".
