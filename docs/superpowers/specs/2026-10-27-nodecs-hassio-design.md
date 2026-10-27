@@ -60,8 +60,8 @@ secret fields).
   login answers `401` with an HTML body. It is the panel's only account: the admin login.
 - **Errors:** `200` with `{"errors": [{"message": ...}], "data": null}`.
 - **No subscriptions** (`subscriptionType` is null). State has to be polled.
-- **Certificate:** issued by the event's internal CA; curl and Home Assistant do not trust it by
-  default.
+- **Certificate:** not trusted by curl or Home Assistant by default, on the event panel and on the
+  owner's staging panel alike.
 - **Speed:** the integration's query answers in about 150 ms (4 servers, no matches).
 - **Logos:** `Team.logoUrl` and `CS2Map.logoUrl` are absolute panel URLs
   (`/api/ui/teams/{id}/logo`, `/api/ui/cs2/maps/{id}/logo`) behind the same login; with it they
@@ -81,7 +81,8 @@ The types it reads (non-null `!` as the schema declares):
 Enums: `CS2ServerStatus` = STOPPED, STARTING, RUNNING_INVALID, RUNNING_VALID, UNKNOWN.
 `Phase` = UNASSIGNED, WARMUP, KNIFE, LIVE, FREEZE_TIME, HALF_TIME_BREAK, ENDED, ARCHIVED (there is
 no paused phase). `PauseReason` = TACTICAL, TECHNICAL, RESTORE. `ButtonAction` = TAC_PAUSE,
-TECH_PAUSE. `MatchTeam` = A, B. `Time` is RFC 3339 UTC (`2026-10-26T08:02:05Z`).
+TECH_PAUSE. `MatchTeam` = A, B. `Time` is RFC 3339 UTC, with or without fractional seconds, up
+to nanoseconds (`2026-10-26T08:02:05Z`, `2026-10-27T20:21:54.985469598Z`).
 
 What the data looked like across 97 archived matches: a TACTICAL pause always has a team and lasts
 about 30 s; TECHNICAL pauses come with a team (31) or without one (9, called from the panel);
@@ -134,7 +135,8 @@ ULIDs and do not change when a server is renamed; the device name follows the pa
   a debug log line, not an error.
 - **Images** are fetched by the integration with the login and the certificate setting, and
   served by Home Assistant's image proxy, so any dashboard can show them. They are fetched again
-  only when the URL changes.
+  only when the URL changes. The login is sent only to the panel's own address: a logo URL on
+  another host is fetched without it, so a team logo can never carry the password elsewhere.
 
 ## 5. The query
 
@@ -212,9 +214,11 @@ The panel already handles physical buttons:
   "Before the match is live, presses are only reported, so you can check each button is wired to
   the right team."
 - **Every press is logged** with an outcome: NONE, TEST, EXECUTED, ERROR.
-- **There is a separate button API key** (`Config.buttonApiKey`; the UI's "Button API Key (empty
-  …"), so presses arrive through an endpoint other than the UI's GraphQL. Its path and request
-  shape are not in the UI bundle; the owner or the panel's code has to supply them.
+- **Presses arrive on their own endpoint** with their own key (`Config.buttonApiKey`), supplied by
+  the owner on 2026-10-27: `POST /api/buttons/{buttonID}/press` with
+  `Authorization: Bearer <button key>`. A button that has never pressed registers itself.
+- **A newer panel build also tracks button outages** (`buttonOutages(buttonIDs, limit)`:
+  `buttonID`, `startedAt`, `endedAt`, `detail`), which suits the range tests.
 
 So the later integration step is most likely "forward each Zigbee press to the panel's button
 endpoint with the button key, and let the panel's bindings decide", not "call `pauseCS2Match`
