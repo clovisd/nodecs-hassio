@@ -5,7 +5,8 @@
 their findings are folded in below and listed in §13. After the checks the owner answered §12
 Q1, Q2 and Q4 and added Discord webhooks (§5.13, approved "looks good"). Later the same day the
 owner answered Q3 and Q5–Q7 (names, page access with a standalone page, retention, network): no
-questions remain open. A second red-team and blind-builder check ran on this version (§13).
+questions remain open, except §12 Q8, which the second red-team and blind-builder check raised
+(§13.2).
 **Repos:** `clovisd/nodecs-hassio` (this one, piece 1; **private since 2026-10-28**), and three
 repos that do not exist yet: `unityintercom-hassio` (piece 2), `coachpc` (piece 3) and
 `coachpc-hassio` (piece 4).
@@ -88,22 +89,23 @@ The owner's words, 2026-10-28:
 ## 4. Architecture
 
 ```
-  SNZB-01P ──Zigbee──▶ SLZB-MR5U ──▶ ZHA ──zha_event──▶ NodeCS button path ──HTTPS──▶ panel
+  SNZB-01P ──Zigbee──▶ SLZB-MR5U ──▶ ZHA ──zha_event──▶ NodeCS press path ──HTTPS──▶ panel
                                                         │   POST /api/buttons/{id}/press
-                                                        │
-                       ┌────────────────────────────────┼────────────────────────┐
-                       ▼                                ▼                        ▼
-               nodecs_button_press event        archive (append-only)    readiness page
-                       │                                                  (sidebar panel)
-          automations (e.g. spin the                       │ calls actions during tests
-          lobby admin's beacon)                ┌───────────┴────────────┐
-                                               ▼                        ▼
-                                  unity.direct_talk               coachpc.play_sound
-                                  (Unity integration)             (coach PC integration)
-                                        │ UDP 20119                     │ LAN HTTP + token
-                                        ▼                               ▼
-                                  Unity bot client ──▶ walker's   coach PC app ──▶ coach's
-                                  (desktop, Windows)    phone      (Windows)        headset
+                                                        │   (own warm connector)
+          ┌──────────────────────┬──────────────────────┼──────────────────────┐
+          ▼                      ▼                      ▼                      ▼
+  nodecs_button_received   nodecs_button_press     archive               readiness page
+  (at t_zha: beacon        nodecs_pause_started    (append-only,         (sidebar panel and
+   automations)            (automations)            hash-chained)         /nodecs-board/)
+                                                    │                      │ calls actions
+                                                    ▼                      │ during tests
+                                          Discord senders           ┌──────┴───────────────┐
+                                          (tac channel,             ▼                      ▼
+                                           all-messages)   unity_intercom.direct_talk  coachpc.play_sound
+                                                                    │ UDP 20119            │ LAN HTTP + token
+                                                                    ▼                      ▼
+                                                           Unity bot client ──▶     coach PC app ──▶
+                                                           walker's phone           coach's headset
 ```
 
 Four pieces, built in this order (see the build plan):
@@ -201,6 +203,9 @@ Under ZHA each gesture is a `zha_event` from the device's IEEE address:
   system controls.
 - The hold time is deliberate: a tac pause needs a hold so it cannot be called by accident
   (owner, 2026-10-27).
+- **A hold may also emit a `toggle` when it is released.** If Phase 0.3 sees that, NodeCS drops
+  any `toggle` from the same button within 1 s after an `off`. Otherwise every tac would be
+  followed by a tech pause that stops play at once. (Second red team 2.12.)
 - If the tap delay ever matters, the fix is a button that reports a press immediately. That is a
   hardware decision for the owner, out of scope here.
 
@@ -212,11 +217,21 @@ longer leaves the entry unloaded. The coordinators retry on their own, and press
 queued and sent with retries the whole time. (Red team R7. This changes v0.1's setup, where a
 failed first read raised `ConfigEntryNotReady`.)
 
-NodeCS subscribes to `zha_event` on Home Assistant's bus, filtered to the IEEE addresses in the
-booth list. For each event:
+NodeCS subscribes to **every** `zha_event` on Home Assistant's bus. The handler looks up the
+event's IEEE address in a dict of linked buttons, which costs microseconds.
 
-1. **Received:** at `t_zha`, `nodecs_button_received` fires at once with the booth, gesture and
-   panel ID. The lobby admin's beacon automation hangs off this event, not off the outcome.
+- A **linked** button goes down the press path below.
+- An **unlinked SNZB-01P** (matched by ZHA's manufacturer and model) is shown on the page as
+  "unlinked button pressed".
+- Any other device's events are ignored. (Second blind check: the first draft filtered the
+  subscription and also promised unlinked-button reporting, which can't both hold.)
+
+The press path never awaits anything before sending, and nothing CPU-bound runs on the event
+loop anywhere in NodeCS: archive hashing and fsync, page serialisation, and password hashing
+all run in executors (second red team 2.3). For each linked event:
+
+1. **Received:** at `t_zha`, `nodecs_button_received` fires at once with the booth, gesture,
+   panel ID, and `test_window` (whether a test window is open on that server). The lobby admin's beacon automation hangs off this event, not off the outcome.
    (Red team R11.)
 2. **Map:** `toggle` and `on` (double press) → the booth's `tap_id`; `off` → `hold_id`. Anything
    else is logged and ignored. A button not in the booth list is ignored, but shown on the page
@@ -229,7 +244,11 @@ booth list. For each event:
 4. **Send at once:**
    - `POST /api/buttons/{id}/press` with the button key goes out on a **dedicated press
      session**: its own aiohttp connector with two connections, kept warm by a tiny
-     authenticated request every 5 s. The 1 s match read can't occupy it. (Red team R16.)
+     request every 5 s: the cheap GraphQL `{ cs2Servers { id } }` query with the admin login,
+     on the same connector. What matters is the TCP/TLS connection, not the header, and the
+     press endpoint is never used to keep warm. (Second checks 2.15 and B4.)
+   - The panel's address is resolved in the background and pinned for the press connector, so a
+     slow venue DNS can't stretch the 0.5 s retry cadence to 3 s. (Second red team 2.6.) The 1 s match read can't occupy it. (Red team R16.)
    - Timeouts are `aiohttp.ClientTimeout(sock_connect=1, total=3)`, with distinct error types
      for "never connected" and "failed after sending". v0.1's client merges these into one
      connection error, and the press client must not. (Red team R3.)
@@ -245,6 +264,11 @@ booth list. For each event:
    - **Ambiguous** (timeout after sending, reset after sending, `5xx`): the press may already
      have been executed. NodeCS resolves this by **the panel's press ids, never by comparing
      clocks** (red team R3; blind B3):
+     - The newest-id record is **persisted** in NodeCS's store across restarts. If the panel
+       was down at boot, it is seeded on the first successful read. Until a panel ID is
+       seeded, its state is **unseeded**, shown on the status strip. An unseeded ambiguous
+       press is never declared delivered: it follows the §12 Q8 policy. If Phase 0 finds the
+       press response carries the press id, that id is used directly. (Second red team 2.5.)
      - NodeCS keeps the newest press id it has seen for each panel button ID. It seeds this at
        startup by reading `buttonPresses` for every linked ID, and updates it after each outcome
        read and by reconciliation (§5.6).
@@ -252,8 +276,16 @@ booth list. For each event:
        newer than the stored one, means **delivered**. Ids are ordered by the panel itself,
        which Phase 0 confirms.
      - None means **resend**, and the same check repeats for up to 10 s.
+   - **Proof that never comes:** the log read itself fails, 10 s pass still ambiguous, or Home
+     Assistant restarts between `press_sent` and `press_outcome`. NodeCS then follows the
+     owner's choice in §12 Q8 (resend, or a critical "unconfirmed tac at booth X" alert for the
+     admin to act on). Until the owner answers, the default is **no resend plus that critical
+     alert**, so the anti-goal "a pause executed twice" is never risked silently. (Second blind
+     check 1.)
    - `401` or `403`: the button key was refused. Failed, no retry. A repair issue and a critical
      alert are raised.
+   - `429` and `408`: the panel did not take it, so they join the **never-left** retries,
+     honouring `Retry-After`. (Second red team 2.6.)
    - Other `4xx`: failed, no retry.
 6. **Confirm the request:** after delivery NodeCS reads the press log for this ID to get the
    panel's `outcome` and `detail`, waiting up to 2 s for the entry to appear. `EXECUTED` means
@@ -266,6 +298,8 @@ booth list. For each event:
    - after an `EXECUTED` press NodeCS watches that server's match for the **first new pause by
      that team** of the matching kind (`TACTICAL` for a hold, `TECHNICAL` for a tap) starting
      after the request;
+   - the link is marked **probable**, not certain, because an admin may call a pause for that
+     team from the panel in the same window (second red team 2.11);
    - when it appears, the archive gets a `pause_started` record linked to the press, and
      `nodecs_pause_started` fires with the delay;
    - until then the page shows the press as **"requested, waiting for the server"**, with how
@@ -314,6 +348,13 @@ For each press NodeCS records:
   - every 10 s NodeCS reads `buttonPresses` for the linked IDs (a cheap, slow-path query);
   - any press the panel logged but NodeCS did not send (a leaked key, a curl, another
     controller) is archived as `foreign_press`;
+  - **NodeCS's own presses are attributed first:**
+    - every `press_sent` whose panel id was never learned stays in a **persisted "unmatched
+      sends" ledger**;
+    - an unknown press id on a linked panel ID is matched to the oldest unmatched send for that
+      ID within 60 s (tolerant of the clock offset Phase 0 measures), so NodeCS's own presses
+      are never flagged foreign;
+    - the sentinel ID's presses are NodeCS's by definition. (Second blind check 2.)
   - a foreign press with outcome `EXECUTED` is a critical alert. (Red team R10b.)
 - **Tamper evidence:**
   - each line carries the SHA-256 of the previous line, and the chain **continues across days**:
@@ -332,7 +373,7 @@ For each press NodeCS records:
 
 | Event | When | Key fields |
 |---|---|---|
-| `nodecs_button_received` | Immediately at `t_zha`, before sending | `booth`, `gesture`, `panel_id`, `server_id`, `t_zha` |
+| `nodecs_button_received` | Immediately at `t_zha`, before sending | `booth`, `gesture`, `panel_id`, `server_id`, `t_zha`, `test_window` (so automations can tell a walk-round press from a live tac) |
 | `nodecs_button_press` | After step 7 of §5.4, for every press, including test-window presses | `booth`, `gesture` (`tap`/`hold`), `panel_id`, `server_id`, `match_id`, `team` (`a`/`b`/`null`, from the bindings), `team_name`, `result` (`delivered`/`failed`), `outcome` (`executed`/`test`/`error`/`none`/`unknown`), `detail`, `t_zha`, `t_sent`, `t_answered`, `latency_ms`, `test_run_id` |
 | `nodecs_pause_started` | The pause a press requested has started (§5.4 step 8) | `booth`, `panel_id`, `server_id`, `match_id`, `team`, `reason` (`tactical`/`technical`), `requested_at`, `started_at`, `waited_s`, `press_seq` |
 | `nodecs_test_step` | Each step of a test | `test_run_id`, `kind` (`admin`/`coach`), `step`, `booth`, `gesture`, `status` (`passed`/`failed`/`waiting`), `latency_ms`, `team_matched`, `note` |
@@ -350,7 +391,7 @@ For each press NodeCS records:
 | Button signal | ZHA LQI / RSSI at the last message | LQI < 100 | LQI < 50 |
 | Button battery | ZHA battery | < 30 % | < 15 % |
 | **Coach test done** | the archive | — | a match leaves WARMUP without a passed coach test for every booth on its server (alert only; the panel is never blocked). (Red team R6.) |
-| Binding sanity | panel bindings for **every** match, the booth list, TeamSpeak | a booth's tap or hold ID not bound for its current match | a booth's ID bound on **another** server's match (red team R8); or bound to the team whose TeamSpeak channel this booth's coach PC is not in (§5.10) |
+| Binding sanity | panel bindings for **every** match, the booth list, TeamSpeak | a booth's tap or hold ID not bound for its current match; an admin assignment that contradicts TeamSpeak (§5.10) | a booth's ID bound on **another** server's match (red team R8); bound to the team whose TeamSpeak channel this booth's coach PC is not in (§5.10); **bound to the wrong action** (`tap_id` not `TECH_PAUSE`, `hold_id` not `TAC_PAUSE`), or **both of a booth's IDs bound to the same action** (second red team 2.9) |
 | Foreign press | reconciliation (§5.6) | — | a press NodeCS did not send, executed |
 | Archive | the writer | — | a write failed |
 | Coach PC | piece 4 | §8 | §8 |
@@ -360,15 +401,26 @@ For each press NodeCS records:
 
 - Every threshold has hysteresis and a minimum duration before raising or clearing (builder's
   values).
-- While any match is live, only **press-path alerts** go to the beacon and notifications (press
-  path alive, key refused, a failed press, foreign press, wrong-server binding). Everything else
-  shows on the page.
+- **One rule while any match is live:** only **press-path criticals** reach the beacon,
+  notifications and Discord's critical level. Those are:
+  - press path alive;
+  - key refused;
+  - a failed or unconfirmed press;
+  - a foreign press;
+  - a wrong-server or wrong-action binding.
+
+  Every other critical shows on the page only, until no match is live. (Second red team 2.10;
+  the first draft contradicted itself here.)
+- **At the go-live instant,** the checks that become critical then ("coach test not done",
+  "TeamSpeak mismatch still there") are folded into **one** page notice: "Server N went live
+  with: …".
 - The README's beacon automation uses distinct patterns: **spin** for a press, **flash** for a
   critical alert.
 
 **How alerts surface:**
 
-- Critical alerts raise a persistent notification and `nodecs_alert`.
+- Critical alerts raise `nodecs_alert`, and a persistent notification subject to the live-match
+  rule above.
 - Warnings show on the page and in the archive.
 - An alert clears itself when its condition clears. Both moments are archived.
 - Thresholds live in one place and are easy to change.
@@ -387,8 +439,20 @@ survey. Never update the coordinator, ZHA or Home Assistant during an event. (Re
   - **Home Assistant admins:** everything, including booth editing.
   - **Non-admin Home Assistant users:** see the page read-only (status, presses, tests,
     archive), but cannot start tests, assign teams, edit booths or export.
+  - **Operators:** NodeCS's options can name specific non-admin Home Assistant users as
+    operators, who may start tests and assign teams. By default there are none, so a logged-in
+    Home Assistant user is never outranked by the standalone page's shared password. (Second
+    blind check 6.)
   - Every WebSocket command checks the role server-side; the page hiding buttons is not the
     check.
+- **How the page ships:**
+  - **dependency-free ES modules** (native web components, no framework, no build step, no
+    Node toolchain), served from `custom_components/nodecs/frontend/` by a registered static
+    path, so HACS installs it with the integration. The owner maintains Go and Python, not a JS
+    build. (Builder's call; second blind check 3.)
+  - The sidebar panel uses the URL path `nodecs`; the standalone page lives at
+    `/nodecs-board/`, so Home Assistant's frontend router never captures it. (Second red team
+    2.14.)
 - **Status strip:**
   - the panel: answering, live updates, read time p50/p95;
   - the button key;
@@ -416,7 +480,7 @@ survey. Never update the coordinator, ZHA or Home Assistant during an event. (Re
 The owner, 2026-10-28: "if there's a way to serve it as a standalone page too, so it can be
 directly accessed without HA ui / frame, and make that page password protected".
 
-**What it is:** NodeCS serves the same page at `/nodecs/board/` on Home Assistant's own port, as
+**What it is:** NodeCS serves the same page at `/nodecs-board/` on Home Assistant's own port, as
 a plain page outside Home Assistant's frontend and login. It suits a lobby screen or a staff
 laptop. It is **off unless a password is set.**
 
@@ -428,30 +492,55 @@ off.
 | **Viewer** | Everything a non-admin Home Assistant user sees: status, presses, tests and the archive, read-only |
 | **Operator** | Viewer, plus start and stop tests, choose the walker, and assign teams to booths. Booth editing, NodeCS's options and archive export stay Home Assistant admin-only. |
 
-**Accountability:** the login form also asks **who you are** (a free-text name). That name and
-the role are archived with every action taken from the standalone page, and with every login
-and logout. Actions taken in Home Assistant use the Home Assistant user.
+**Accountability:** the login form also asks **who you are**. That name and the role are
+archived with every action taken from the standalone page, and with every login and logout.
+Actions taken in Home Assistant use the Home Assistant user.
 
-**Security** (builder's calls; the owner's network keeps these pages on a VLAN players cannot
-reach):
+**Security** (builder's calls, hardened after the second red team). The owner's network keeps
+these pages on a VLAN players cannot reach, and the page enforces that rather than trusting it.
 
-- **Passwords** are stored as scrypt hashes in the options, never in plain text, and never
-  logged.
-- **Sessions:** a random token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` when Home
-  Assistant serves HTTPS). It expires after 12 hours, and changing a password ends every session
-  of that role.
-- **Logins** are limited to 5 tries a minute per IP, then a 5-minute lockout. Every failed login
-  is archived, and a burst raises a warning alert.
+- **LAN only by default.** Requests are refused unless `request.remote` is a local address.
+  NodeCS never parses `X-Forwarded-For` itself; it relies on Home Assistant's
+  `trusted_proxies` handling. An opt-in list of allowed CIDRs can widen this. The page refuses
+  to turn on while Home Assistant Cloud remote access is enabled, unless explicitly overridden.
+  (2.7)
+- **Passwords:**
+  - stored as scrypt hashes in the options, never in plain text, and never logged;
+  - **hashed in an executor, one at a time,** never on the event loop, so a login can never
+    delay a press. (2.3)
+- **Logins:**
+  - **throttled before any hashing:** 5 tries a minute per IP, plus a global backoff per role
+    (at most one check a second, doubling after failures), since IPv6 temporary addresses make
+    per-IP limits weak alone;
+  - a lockout never ends existing sessions;
+  - NodeCS **never** calls Home Assistant's `process_wrong_login`, so a typo at the lobby desk
+    can't get that IP banned from Home Assistant;
+  - every failed login is archived, and a burst raises a warning. (2.3, 2.7)
+- **The name field** accepts only `[A-Za-z0-9 _-]`, 1–32 characters. (2.4)
+- **Every free string the page shows is escaped:** names, team names, booth names, the panel's
+  `detail`. The page never builds HTML from data. (2.4)
+- **Content Security Policy** (fixed):
+  `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`.
+  No inline scripts or handlers anywhere in the component. The sidebar panel shares Home
+  Assistant's origin, so an injection there could reach an admin's stored token. A Phase 2
+  acceptance test logs in with a hostile name and checks that nothing executes. (2.4)
+- **Sessions:**
+  - a fresh random token on every login, in an `HttpOnly`, `SameSite=Strict` cookie with
+    `Path=/nodecs-board/` (`Secure` when Home Assistant serves HTTPS);
+  - the session expires after 12 hours, and an **operator** session goes idle after 30 minutes
+    and asks for the password again before an operator action;
+  - a **logout** endpoint;
+  - changing a password ends every session of that role. (2.14)
 - **Actions:** every state-changing request carries a CSRF token and is checked server-side
   against the role.
 - **Its own narrow endpoints only:**
-  - a Server-Sent Events stream for live state, using the same data as the Home Assistant
-    WebSocket subscription;
+  - a Server-Sent Events stream for live state (with `X-Accel-Buffering: no`, and at most 3
+    streams per session), using the same data as the Home Assistant WebSocket subscription;
   - a few POST commands for the operator actions.
   - It never exposes Home Assistant's API, tokens, the panel's login, the button key, the
     Discord URLs, or the coach PC tokens.
-- **Response headers:** `Content-Security-Policy` limited to the page's own assets,
-  `X-Frame-Options: DENY`, and `Cache-Control: no-store`.
+- **Other response headers:** `X-Frame-Options: DENY`, `Cache-Control: no-store`, and
+  `Referrer-Policy: no-referrer`.
 
 ### 5.10 The team at each booth, and the binding check
 
@@ -474,6 +563,13 @@ admin with direct overwrite somewhere to ASSIGN a button."
 
 The page always shows where a booth's team came from: assigned, TeamSpeak, confirmed, or
 unknown.
+
+- **An assignment does not silence TeamSpeak.** When an admin assignment and TeamSpeak
+  disagree, the booth shows "assignment contradicts TeamSpeak", the test modal names it, and the
+  binding check raises a warning. The assignment still wins; the warning keeps an independent
+  source in view, so one person's misreading can't pass every check. (Second red team 2.8.)
+- **Two TeamSpeak clients with one nickname** make that booth's TeamSpeak team **unknown**,
+  never the first match.
 
 **The binding check** compares three things, for **every** match on the panel:
 
@@ -516,7 +612,11 @@ live and that's all. A press is a press once live."
 - **When a test may be started:** only while the panel would only *report* presses for that
   server's match. The rule comes from Phase 0 (§5.1); until then, **`WARMUP` only**.
 - While a test window is open, the page shows a prominent "test window open on Server N"
-  banner.
+  banner, and the modal says "do not go live until this closes".
+- **NodeCS learns the phase up to 1 s late.** So any `EXECUTED` outcome during an open window
+  (the panel executed, so the match is live) **closes the window at once**, flashes "LIVE —
+  stop testing" in the modal, and is treated as the live press it is: forwarded, archived and
+  beeped. (Second red team 2.11.)
 - Every test is archived, whether it passes, fails or ends at the match start.
 
 **Who sits where.** A test compares the team the panel matched with **the team at the booth**,
@@ -532,9 +632,14 @@ owner.)
 `test_run_id` with the admin's Home Assistant user:
 
 1. **Path check, with no bound IDs:**
-   - **Key and round trip:** one press to an **unbound sentinel ID** (`nodecs-probe`, outcome
-     `NONE`) proves the button key, the panel's press API and the round trip. Phase 0 checks
-     what a sentinel press shows on the panel, such as a notification.
+   - **Key and round trip:** one press to an **unbound sentinel ID** (outcome `NONE`) proves
+     the button key, the panel's press API and the round trip. Phase 0 checks what a sentinel
+     press shows on the panel, such as a notification.
+   - **The sentinel is named `zz-nodecs-probe-do-not-bind`.** Immediately before every sentinel
+     press, NodeCS reads every server's current bindings. If the sentinel is bound
+     **anywhere**, the press is refused and a critical alert raised. One mis-click in the
+     panel's Buttons dialog would otherwise turn the safe probe back into a real press. (Second
+     red team 2.2.)
    - **Bindings:** read from `buttonBindings`, already part of the 1 s match read. Each booth
      ID must be bound, with the right action, to the team at that booth.
    - This takes about a second and never touches a match.
@@ -544,7 +649,7 @@ owner.)
    - **Each step:** while the window is open, every physical press on that server's booths is
      a step. It shows the booth, the gesture, when Home Assistant received it, the round trip,
      the team and action the panel matched, and the signal at that moment.
-   - **The beep:** each press triggers `unity.direct_talk` to the walker, one short beep sent as
+   - **The beep:** each press triggers `unity_intercom.direct_talk` to the walker, one short beep sent as
      soon as the press is received, so the walker hears the delay as they walk. The beep's
      send time is archived too.
    - **Controls:** the modal can repeat a step, fail it with a note, or export.
@@ -591,6 +696,18 @@ beep that a tac has been requested and sent."
   certificate (PEM)** and builds a custom SSL context, so "Verify SSL certificate" can stay on
   with the event's CA. With the VLAN in place this is a nice-to-have, not a must. Unticking
   verification stays possible. (Red team R9.)
+- **NodeCS never reloads itself because an option changed.** Every option takes effect in
+  place:
+  - the button key;
+  - the CA certificate;
+  - the standalone passwords and operator list;
+  - the Discord URLs and level;
+  - the health thresholds.
+
+  A reload drops the `zha_event` subscription for a second or two, and Home Assistant does not
+  queue events, so a press in that gap would be lost. Reauthentication and reconfiguration,
+  which must reload, warn first when any server is live and ask for confirmation. Phase 1
+  tests an options change with a press in flight. (Second red team 2.1.)
 - **The button key** is its own config-entry field:
   - it is **optional:** after upgrading from v0.1, NodeCS keeps working read-only, and a repair
     issue asks for the key (blind B6);
@@ -651,8 +768,17 @@ with a timestamp and the level.
 **Reliability:** Discord is outside the LAN and can be slow, rate-limited or unreachable, and
 none of that may affect a press.
 
-- **One background sender per webhook,** each with its own queue. The press path and the archive
-  writer only enqueue and never wait.
+- **One background sender per webhook,** each with its own queue and its **own `ClientSession`
+  and connector**, separate from the panel's. The press path and the archive writer only enqueue
+  and never wait.
+- **The same URL in both options** gets one shared sender, with tac messages first.
+- **Live tacs before test tacs:** within the tac queue, live tacs go ahead of test tacs, so a
+  walk-round's burst of test tacs never delays a real one. (Second red team 2.13.)
+- **Restarts:** queued messages and the ids of tac messages awaiting their "started" edit are
+  persisted with the press records. After a restart NodeCS resumes them, and posts one
+  "NodeCS restarted at …" line to each channel.
+- **What leaves the venue:** the Discord formatter redacts IP addresses, IEEE addresses and
+  failed-login names, at every level.
 - **Rate limits:** sending follows Discord's `429` `retry_after` and rate-limit headers. The
   all-messages channel batches bursts into one message, up to 10 lines or 1 s apart.
 - **When Discord is unreachable:**
@@ -663,7 +789,9 @@ none of that may affect a press.
 - **The archive stays the record.** Discord is a convenience view: a message that never reaches
   Discord is still in the archive.
 - **Privacy:** team names, booth names and Home Assistant user names leave the venue LAN through
-  Discord. The owner chooses this by entering a URL. The README says so.
+  Discord. The owner chooses this by entering a URL. The README says so, and also that **the tac
+  channel must be admin-only on Discord**: "TAC requested" is competitive information until
+  the pause starts.
 
 The owner approved this section's content on 2026-10-28 ("looks good"), including failed and
 test tacs in the tac channel, and the edit when the pause starts.
@@ -702,9 +830,9 @@ test tacs in the tac channel, and the edit when the pause starts.
   - a map of user → button, learned from the labels the client pushes. The owner can override
     it.
 - **Actions:**
-  - `unity.direct_talk` (target: bot device; `user`; `duration_ms`, default 150): presses the
+  - `unity_intercom.direct_talk` (target: bot device; `user`; `duration_ms`, default 150): presses the
     user's button, holds, releases.
-  - `unity.press_button` (target: bot device; `button`; `hold_ms`): the same, by number.
+  - `unity_intercom.press_button` (target: bot device; `button`; `hold_ms`): the same, by number.
   - Every press sends **Keyup twice**. A watchdog sends Keyup if a hold outlives its duration by
     1 s. A latched talk would leave the walker's line open.
   - Both actions fail loudly (a Home Assistant error) when the client is not connected or the
@@ -847,7 +975,7 @@ mode playing a beep into the cable on demand.)
 - **NodeCS optional dependencies:** `unity_intercom` and `coachpc` (manifest
   `after_dependencies`). The page hides walker selection and coach beeps when they are absent.
 - **What NodeCS calls:**
-  - `unity.direct_talk` with `blocking=False` and a 1 s timeout;
+  - `unity_intercom.direct_talk` with `blocking=False` and a 1 s timeout;
   - `coachpc.play_sound` with `blocking=True` and a 1 s timeout during tests, so the start time
     can be archived;
   - `blocking=False` for live-press confirmations, so the press path never waits.
@@ -926,6 +1054,20 @@ method for each.
   - its API is firewalled to Home Assistant.
 - **Security:** an optional CA certificate keeps TLS verification on. The button key is
   optional on upgrade and can be replaced without a reload.
+- **Second-round calls:**
+  - every option applies in place, never by reloading;
+  - the sentinel's bound-anywhere guard;
+  - a persisted newest-id seed and an unmatched-send ledger;
+  - `429` and `408` retried;
+  - DNS pinned for the press connector;
+  - the keep-warm uses the GraphQL ids query;
+  - all CPU-bound work runs off the event loop;
+  - wrong-action bindings are critical;
+  - one live-match alert rule;
+  - live tacs go before test tacs in Discord;
+  - the frontend is dependency-free ES modules with no build step;
+  - the standalone page is at `/nodecs-board/` and LAN-only by default;
+  - the operator role can be granted to named Home Assistant users.
 - **The page** is one web component, served both as a sidebar panel and as a standalone page.
   - Roles: admin, read-only non-admin, and standalone viewer and operator.
   - The standalone page's security is as in §5.9.1: scrypt hashes, cookie sessions, a login
@@ -956,7 +1098,17 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
 6. ~~Retention.~~ **Answered, 2026-10-28:** never delete.
 7. ~~Network.~~ **Answered, 2026-10-28:** a separate VLAN players cannot reach.
 
-All questions are answered.
+8. **Open (raised by the second blind check): when NodeCS cannot prove whether a press
+   landed,** which way should it lean? This covers three cases: the log read fails, 10 s pass
+   still ambiguous, or Home Assistant restarted mid-press.
+   - **Resend:** never miss a press, at the risk of a second timeout.
+   - **Don't resend:** raise a critical "unconfirmed tac at booth X" alert for the admin to
+     act on. This is the current default, so a double pause is never risked silently.
+
+   Phase 0.1 shows whether the panel ignores a second request while one is pending. If it does,
+   resending is safe and this question goes away.
+
+All other questions are answered.
 
 ## 13. Review findings folded in
 
@@ -1000,3 +1152,35 @@ Two checks on 2026-10-28, both on Fable 5.1 at the owner's request, read-only:
 - TeamSpeak nicknames are unique and the team channels are set per match;
 - Home Assistant's event loop stays fast under load;
 - the clocks agree.
+
+### 13.2 Second round (after the owner's answers)
+
+A second red team (2.x) and a second blind builder check (B2.x) ran on the answered spec and the
+build plan, both on Fable 5.1, read-only.
+
+| # | Finding | Severity | Disposition |
+|---|---|---|---|
+| 2.1 | Changing an option reloads the entry, dropping `zha_event`s for 1–3 s | Critical | **Changed:** every option applies in place; reloading flows warn when live; a Phase 1 test (§5.12) |
+| 2.2 | The sentinel ID can be bound in the panel, bringing R1 back | High | **Changed:** renamed `zz-nodecs-probe-do-not-bind`, with a bound-anywhere guard before every probe (§5.11) |
+| 2.3 | scrypt and other CPU work on the event loop would delay presses | High | **Changed:** throttled before hashing, hashing in an executor one at a time, all CPU-bound work off the loop (§5.4, §5.9.1) |
+| 2.4 | Stored XSS through the "who you are" name, reaching Home Assistant's origin | High | **Changed:** a strict charset, all strings escaped, a fixed CSP with no inline code, a hostile-name test (§5.9.1) |
+| 2.5 | An unseeded id-check gives a false "delivered" | High | **Changed:** a persisted seed, an "unseeded" state, the Q8 policy when unseeded (§5.4) |
+| 2.6 | `429`/`408` never retried; DNS stalls slow the retry cadence | High | **Changed:** both in the retry class with `Retry-After`; DNS pinned (§5.4) |
+| 2.7 | The page outruns the VLAN; per-IP lockout is a DoS behind a proxy | Medium | **Changed:** LAN-only default, `trusted_proxies` only, a CIDR opt-in, refused with Cloud remote on, no `process_wrong_login` (§5.9.1) |
+| 2.8 | An admin assignment silences TeamSpeak, so a wrong "pass" | Medium | **Changed:** a contradiction warning; a duplicate nickname means unknown (§5.10) |
+| 2.9 | A wrong-action binding isn't checked | Medium | **Changed:** wrong action, or the same action twice, is critical (§5.8) |
+| 2.10 | Live-match alert rule contradicted itself; go-live noise; beacon can't tell tests | Medium | **Changed:** one rule, a single go-live notice, a `test_window` field on `nodecs_button_received` (§5.7, §5.8) |
+| 2.11 | Holds in the 1 s phase lag; pause links can be wrong | Medium | **Changed:** an `EXECUTED` outcome in a window closes it and is treated as live; "do not go live" in the modal; links marked probable (§5.4, §5.11) |
+| 2.12 | A hold's release may emit `toggle`, a stray tech pause | Medium | **Changed:** if Phase 0.3 sees it, a `toggle` within 1 s after `off` is dropped (§5.3) |
+| 2.13 | Discord: a shared URL, test tacs delaying live ones, restarts losing state, competitive info, data off-site, a separate session | Medium | **Changed:** a shared sender, live tacs first, persisted ids and queue, an admin-only channel note, redaction, its own session (§5.13) |
+| 2.14 | Session hygiene; route collision with the frontend | Low | **Changed:** logout, an operator idle timeout, a fresh token per login, cookie path, SSE caps and headers, the `/nodecs-board/` path (§5.9, §5.9.1) |
+| 2.15 | The keep-warm request was unspecified | Low | **Changed:** the GraphQL ids query on the press connector (§5.4) |
+| B2.1 | What to do when delivery can't be proven | High | **The owner's call: §12 Q8.** Default: no resend plus a critical alert |
+| B2.2 | NodeCS's own press mistaken for foreign | High | **Changed:** a persisted unmatched-send ledger with 60 s attribution (§5.6) |
+| B2.3 | How the page ships | High | **Changed:** dependency-free ES modules, no build step (§5.9) |
+| B2.4 | Keep-warm on the press endpoint | Medium | Same as 2.15 |
+| B2.5 | Is `matchID` optional on `buttonPresses`? | Medium | **Answered by the schema:** `buttonID`, `matchID` and `limit` are all optional (`String`, `ID`, `Int`, no `!`); staging accepted `buttonPresses(limit: 15)` |
+| B2.6 | A standalone operator outranks a non-admin Home Assistant user | Medium | **Changed:** named Home Assistant users can be operators; none by default (§5.9) |
+| B2.c1 | Action names `unity.*` against domain `unity_intercom` | — | **Fixed:** `unity_intercom.direct_talk` / `unity_intercom.press_button` everywhere |
+| B2.c2 | A filtered subscription contradicted unlinked-button reporting | — | **Fixed:** listen to every `zha_event`, filter by dict; unlinked means SNZB-01P only (§5.4) |
+| B2.c3 | Some health checks belonged to no phase | — | **Fixed in the build plan:** all §5.8 checks without pieces 2–4 are in Phase 1 |

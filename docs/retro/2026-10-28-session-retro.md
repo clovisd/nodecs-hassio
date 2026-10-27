@@ -101,6 +101,18 @@ The owner settled four things:
 - **Discord webhooks:** a tac channel, plus an all-messages channel with a chosen level. Both
   are optional, and neither is ever in the press path.
 
+## Second review round
+
+- After the owner's answers, a second red team found 15 problems and a second blind check raised
+  6 questions and 3 contradictions. All but one were folded in (spec §13.2).
+- The worst: an options change would reload the integration and drop presses for a second or
+  two; the "safe" probe ID could be bound in the panel; and a hostile name on the standalone page
+  could reach an admin's Home Assistant session.
+- The one left for the owner is §12 Q8: resend, or alert, when delivery can't be proven.
+- **Lesson:** a second adversarial pass on the *answered* design found problems introduced by
+  the answers themselves (the standalone page, the options). Re-run the checks after every round
+  of owner decisions, not only once.
+
 ## Open items carried forward
 
 - NodeCS v0.1 deferred minors:
@@ -108,7 +120,8 @@ The owner settled four things:
   - a server re-listed after its device was deleted gets no entities until a reload;
   - a logo re-uploaded at the same URL isn't refetched.
 - The timeout button system: Phase 0 first (build plan).
-- None of the spec §12 questions remain open. The owner answered Q3 and Q5–Q7 the same day:
+- Spec §12 Q8 (resend or alert when delivery can't be proven) is open. The owner answered Q3 and
+  Q5–Q7 the same day:
   - names `unityintercom-hassio` and `coachpc` / `coachpc-hassio`;
   - admins do everything and other users are read-only, plus a password-protected standalone
     page;

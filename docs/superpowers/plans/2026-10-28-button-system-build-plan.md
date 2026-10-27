@@ -38,9 +38,9 @@ owner's OK, because some are writes on staging. (Spec §12 Q1 and Q2 were answer
 
 | # | What | How | Decides |
 |---|---|---|---|
-| 0.1 | Press endpoint behaviour | Against **staging**, with a spare button ID bound in a WARMUP match: press once; press twice within 1 s; press during a running pause, and while a pause is requested but not yet started (does a second timeout queue?); find how long a tactical and a technical request wait before the pause starts, and whether a pending request is visible in the API; press an unbound **sentinel** ID and note what the panel UI shows (notification? sound?). Record status codes, bodies, `buttonPresses` rows and outcomes, and **whether press ids are ordered**. | §5.4 classification and the id-based ambiguity check; §5.11 sentinel path check |
+| 0.1 | Press endpoint behaviour | Against **staging**, with a spare button ID bound in a WARMUP match: press once; press twice within 1 s; press during a running pause, and while a pause is requested but not yet started (does a second timeout queue?); find how long a tactical and a technical request wait before the pause starts, and whether a pending request is visible in the API; press an unbound **sentinel** ID and note what the panel UI shows (notification? sound?); check whether any endpoint other than `press` accepts the button key, and whether the press response carries the press id. Record status codes, bodies, `buttonPresses` rows and outcomes, and **whether press ids are ordered**. | §5.4 classification and the id-based ambiguity check; §5.11 sentinel path check |
 | 0.2 | "Report only" rule | The owner steps a test match through every phase, **including the knife round and a restored match**, and a test ID is pressed in each | §5.11 when tests may start |
-| 0.3 | SNZB-01P timing | Confirm ZHA emits `toggle`/`on`/`off`. Log `zha_event` `time_fired` while timing taps and holds on 240 fps video, ten of each. Leave a button idle for a day and log its check-ins. | §5.3; hold at threshold or on release; §5.8 "heard from" thresholds |
+| 0.3 | SNZB-01P timing | Confirm ZHA emits `toggle`/`on`/`off`. Log `zha_event` `time_fired` while timing taps and holds on 240 fps video, ten of each. Leave a button idle for a day and log its check-ins. Check explicitly whether releasing a hold also emits `toggle`. | §5.3; hold at threshold or on release; §5.8 "heard from" thresholds |
 | 0.4 | Duplicates and range | Press 200 times near and far from the coordinator; count duplicate `zha_event`s and their spacing. Run a range survey of the booth positions. | The 1 s window; router placement |
 | 0.5 | Clocks and loop lag | Measure the panel-vs-HA clock offset (HTTP `Date` against NTP on both), and HA event-loop lag on the event machine under normal load | §5.5 cross-clock display; Phase 1's latency acceptance |
 | 0.6 | Unity bot | Set up the bot client, virtual cable and tone. Drive Keydown/Keyup from a script; measure Keydown → phone vibration on video. **Kill the controller mid-hold** and see whether the talk stays latched. | §6.2, §6.3, the known offset |
@@ -54,6 +54,8 @@ spec is updated where results differ.
 
 **Repo:** nodecs-hassio. **Spec:** §5.1–§5.8, §5.12.
 
+- **Options that never reload the entry:** every option takes effect in place (spec §5.12).
+  Reauthentication and reconfiguration warn when a match is live.
 - **Setup that can't strand the press path:** the press path (ZHA listener, press client,
   archive writer) is set up **before and independently of** the coordinators. The coordinators
   retry on their own instead of raising `ConfigEntryNotReady`.
@@ -68,7 +70,10 @@ spec is updated where results differ.
   - duplicates dropped within 1 s, queued beyond;
   - a dedicated warm press connector with separate connect and total timeouts and distinct
     error types;
-  - retries for 10 s, with an alert at 2 s;
+  - retries for 10 s, with an alert at 2 s; `429` and `408` retried, honouring `Retry-After`;
+  - the press connector's DNS pinned, and kept warm by the GraphQL ids query;
+  - the newest-id seed persisted, with an "unseeded" state; the §12 Q8 policy when delivery
+    can't be proven;
   - the id-based ambiguity check, seeded at startup;
   - the outcome read and refresh;
   - linking each `EXECUTED` press to the pause it started (`pause_started`,
@@ -83,9 +88,13 @@ spec is updated where results differ.
     batching;
   - the tac message, edited when the pause starts;
   - URLs redacted everywhere.
-- **Health checks and alerts** that need only the panel, ZHA and SMLIGHT (§5.8):
+- **Health checks and alerts** that need only the panel, ZHA and SMLIGHT (§5.8). That means
+  every §5.8 row except the coach PC and Unity rows:
   - press path alive;
-  - every-match binding check (without TeamSpeak);
+  - button heard-from, signal and battery; key refused; a foreign press, with the
+    unmatched-send ledger; archive writes;
+  - every-match binding check (without TeamSpeak), including wrong-action and same-action
+    critical alerts;
   - hysteresis;
   - live-match mode.
 
@@ -99,6 +108,11 @@ spec is updated where results differ.
 - In tests, the time from `zha_event` to the press request is under 10 ms, with no await on a
   read, the archive or an outcome in between.
 - A forced archive write failure alerts without delaying a send.
+- **An options change with a press in flight** loses nothing, and the `zha_event`
+  subscription is never dropped.
+- A panel that was down at boot leaves the id-check "unseeded", never falsely "delivered".
+- Nothing CPU-bound runs on the event loop: a loop-lag probe during a login burst stays under
+  the Phase 0 target.
 - **Discord:**
   - nothing is posted when no URL is set, or when the all-messages level is off;
   - a Discord outage or a `429` never delays a press;
@@ -113,11 +127,20 @@ where they differ from the spec, the spec wins.
 
 - **The sidebar panel and the WebSocket API:** admins do everything, and non-admin Home
   Assistant users are read-only.
-- **The standalone page** at `/nodecs/board/` (spec §5.9.1):
+- **The frontend is dependency-free ES modules** (web components, no framework, no build
+  step), served from `custom_components/nodecs/frontend/`.
+- **Operators:** named Home Assistant users can be made operators (none by default).
+- **The sentinel guard:** before every probe, the sentinel's bindings are read; if it is bound
+  anywhere, the probe is refused with a critical alert.
+- **The standalone page** at `/nodecs-board/` (spec §5.9.1):
   - viewer and operator passwords (scrypt hashes), with the name of whoever logs in archived;
   - cookie sessions, the login rate limit and lockout, CSRF;
   - an SSE state stream and strict headers;
-  - off unless a password is set.
+  - off unless a password is set;
+  - LAN-only by default, with a CIDR opt-in, refused while Cloud remote is on, and never calling
+    `process_wrong_login`;
+  - throttled before hashing, scrypt in an executor, a strict name charset, everything escaped,
+    the fixed CSP, logout, an operator idle timeout.
 - Booth editing.
 - **The admin test:**
   - the path check uses the **sentinel ID and the bindings read, never a bound ID**;
@@ -146,7 +169,9 @@ where they differ from the spec, the spec wins.
   - a viewer cannot reach any operator endpoint, even with hand-made requests;
   - the 6th login try within a minute is refused;
   - a password change ends that role's sessions;
-  - no secret appears in any response.
+  - no secret appears in any response;
+  - logging in with a hostile name (`<img src=x onerror=…>`) executes nothing on either page;
+  - a login burst does not delay a press.
 
 ## Phase 3 — Unity Intercom integration
 
