@@ -48,5 +48,112 @@
       "reauth_successful": "The new login works.",
       "reconfigure_successful": "The panel's address is updated."
     }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "stopped": "Stopped",
+          "starting": "Starting",
+          "running_valid": "Running",
+          "running_invalid": "Running (invalid)"
+        }
+      },
+      "phase": {
+        "name": "Phase",
+        "state": {
+          "no_match": "No match",
+          "unassigned": "Unassigned",
+          "warmup": "Warmup",
+          "knife": "Knife round",
+          "live": "Live",
+          "freeze_time": "Freeze time",
+          "half_time_break": "Half-time break",
+          "ended": "Ended",
+          "archived": "Archived"
+        }
+      },
+      "map": {
+        "name": "Map"
+      },
+      "team_a": {
+        "name": "Team A"
+      },
+      "team_b": {
+        "name": "Team B"
+      },
+      "team_a_score": {
+        "name": "Team A score"
+      },
+      "team_b_score": {
+        "name": "Team B score"
+      },
+      "team_a_maps_won": {
+        "name": "Team A maps won"
+      },
+      "team_b_maps_won": {
+        "name": "Team B maps won"
+      },
+      "best_of": {
+        "name": "Best of"
+      },
+      "team_a_timeouts_left": {
+        "name": "Team A timeouts left"
+      },
+      "team_b_timeouts_left": {
+        "name": "Team B timeouts left"
+      },
+      "team_a_timeouts_used": {
+        "name": "Team A timeouts used"
+      },
+      "team_b_timeouts_used": {
+        "name": "Team B timeouts used"
+      },
+      "pause": {
+        "name": "Pause",
+        "state": {
+          "none": "None",
+          "tactical": "Tactical",
+          "technical": "Technical",
+          "restore": "Restore"
+        }
+      },
+      "paused_by": {
+        "name": "Paused by",
+        "state": {
+          "none": "Nobody",
+          "team_a": "Team A",
+          "team_b": "Team B",
+          "admin": "Admin"
+        }
+      },
+      "pause_started": {
+        "name": "Pause started"
+      },
+      "assigned_at": {
+        "name": "Assigned"
+      },
+      "live_at": {
+        "name": "Went live"
+      },
+      "ended_at": {
+        "name": "Ended"
+      },
+      "button_bindings": {
+        "name": "Button bindings"
+      }
+    },
+    "binary_sensor": {
+      "team_a_ready": {
+        "name": "Team A ready"
+      },
+      "team_b_ready": {
+        "name": "Team B ready"
+      },
+      "live_updates": {
+        "name": "Live updates"
+      }
+    }
   }
 }

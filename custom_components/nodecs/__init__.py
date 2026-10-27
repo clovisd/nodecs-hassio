@@ -24,7 +24,7 @@ from .coordinator import (
 from .entity import panel_device_info, server_device_info
 from .push import PushListener
 
-PLATFORMS: list[Platform] = []
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: NodeCSConfigEntry) -> bool:

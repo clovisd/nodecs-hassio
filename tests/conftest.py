@@ -65,6 +65,8 @@ class FakePanel:
         self.servers: list[dict[str, Any]] = [server_json()]
         # An exception to raise, or an HTTP status to answer, instead of data.
         self.fail: BaseException | int | None = None
+        # Which query `fail` applies to: "match", "status", or None for both.
+        self.fail_kind: str | None = None
         self.reads = {"match": 0, "status": 0}
         aioclient_mock.post(GRAPHQL, side_effect=self._answer)
 
@@ -73,9 +75,10 @@ class FakePanel:
     ) -> AiohttpClientMockResponse:
         kind = "match" if data["query"] == MATCH_QUERY else "status"
         self.reads[kind] += 1
-        if isinstance(self.fail, BaseException):
+        failing = self.fail_kind in (None, kind)
+        if failing and isinstance(self.fail, BaseException):
             raise self.fail
-        if isinstance(self.fail, int):
+        if failing and isinstance(self.fail, int):
             return AiohttpClientMockResponse(method, url, status=self.fail, text="no")
         reply = (
             matches_reply(*self.servers)

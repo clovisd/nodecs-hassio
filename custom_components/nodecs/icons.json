@@ -1,0 +1,81 @@
+{
+  "entity": {
+    "sensor": {
+      "status": {
+        "default": "mdi:server",
+        "state": {
+          "stopped": "mdi:server-off",
+          "running_invalid": "mdi:server-network-off"
+        }
+      },
+      "phase": {
+        "default": "mdi:flag-checkered",
+        "state": {
+          "live": "mdi:play-circle",
+          "warmup": "mdi:timer-sand",
+          "no_match": "mdi:sleep"
+        }
+      },
+      "map": {
+        "default": "mdi:map"
+      },
+      "team_a": {
+        "default": "mdi:account-group"
+      },
+      "team_b": {
+        "default": "mdi:account-group"
+      },
+      "team_a_score": {
+        "default": "mdi:scoreboard"
+      },
+      "team_b_score": {
+        "default": "mdi:scoreboard"
+      },
+      "team_a_maps_won": {
+        "default": "mdi:trophy-outline"
+      },
+      "team_b_maps_won": {
+        "default": "mdi:trophy-outline"
+      },
+      "best_of": {
+        "default": "mdi:numeric"
+      },
+      "team_a_timeouts_left": {
+        "default": "mdi:timer-outline"
+      },
+      "team_b_timeouts_left": {
+        "default": "mdi:timer-outline"
+      },
+      "team_a_timeouts_used": {
+        "default": "mdi:timer-check-outline"
+      },
+      "team_b_timeouts_used": {
+        "default": "mdi:timer-check-outline"
+      },
+      "pause": {
+        "default": "mdi:pause-circle-outline",
+        "state": {
+          "none": "mdi:play-circle-outline",
+          "technical": "mdi:wrench-clock"
+        }
+      },
+      "paused_by": {
+        "default": "mdi:account-clock"
+      },
+      "pause_started": {
+        "default": "mdi:clock-start"
+      },
+      "button_bindings": {
+        "default": "mdi:gesture-tap-button"
+      }
+    },
+    "binary_sensor": {
+      "team_a_ready": {
+        "default": "mdi:account-check"
+      },
+      "team_b_ready": {
+        "default": "mdi:account-check"
+      }
+    }
+  }
+}
