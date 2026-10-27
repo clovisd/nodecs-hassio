@@ -544,6 +544,70 @@ beep that a tac has been requested and sent."
 - **The page** is admin-only, and its WebSocket commands check `user.is_admin`.
 - **The archive** holds user names and panel IDs, but no keys.
 
+### 5.13 Discord webhooks
+
+The owner, 2026-10-28: "We want to add a discord channel, or two. One for tac pauses, and one for
+all messages (logs, errors, etc) using discord webhooks. For all messages, allow selecting the
+level of alert to display in it. If not provided, do not output webhooks."
+
+**Configuration.** It lives in NodeCS's options flow, and every field is optional:
+
+| Option | Default | Effect |
+|---|---|---|
+| Tac channel webhook URL | empty | Empty: nothing is ever posted for tacs. |
+| All-messages webhook URL | empty | Empty: nothing is ever posted. |
+| All-messages level | **off** | Off: nothing is posted, even with a URL. Otherwise one of `debug`, `info`, `warning`, `error`, `critical`; that level and above are posted. |
+
+- **URLs are checked for shape** (`https://discord.com/api/webhooks/…` or `discordapp.com`). The
+  options flow can send a **test message** to each.
+- **The URLs are secrets:** anyone holding one can post. They are never logged, never put in
+  events or the archive, and are redacted from diagnostics. Messages never carry keys, tokens or
+  webhook URLs.
+
+**The tac channel** gets one message per **tac (hold) press** on any linked booth, live or in a
+test (tests are marked as such):
+
+1. When the panel accepts it (`EXECUTED`): "TAC requested", with the server, the teams, the
+   team calling it, the booth, the time, and the press latency. The message is posted with
+   `?wait=true` so NodeCS keeps its id.
+2. When the pause starts (§5.4 step 8): the same message is **edited**, adding "started at …,
+   waited N s". One message tells the whole story of one tac.
+3. A tac press that fails, or ends in `ERROR`: the message says so, with the reason. A tac
+   attempt never disappears from the channel just because it failed. (Builder's call; the
+   owner asked for "a channel for tac pauses".)
+
+Tech pauses (taps) do not go to the tac channel. They go to the all-messages channel, as `info`.
+
+**The all-messages channel** gets every archive record (§5.6) at or above the chosen level:
+
+| Level | What it includes |
+|---|---|
+| `debug` | Everything: `press_sent`, reconciliation reads, duplicates dropped, config changes, push reconnects |
+| `info` | Every press and its outcome, pauses started, tests started, passed and ended, team assignments |
+| `warning` | Warning alerts, failed test steps, TeamSpeak-only mismatches, a slow press (over 500 ms) |
+| `error` | Failed presses, `ERROR` outcomes, a refused button key, an archive write failure |
+| `critical` | Critical alerts, and their clearing |
+
+The mapping is a builder's call, kept in one table in the code. Each line is one short message,
+with a timestamp and the level.
+
+**Reliability:** Discord is outside the LAN and can be slow, rate-limited or unreachable, and
+none of that may affect a press.
+
+- **One background sender per webhook,** each with its own queue. The press path and the archive
+  writer only enqueue and never wait.
+- **Rate limits:** sending follows Discord's `429` `retry_after` and rate-limit headers. The
+  all-messages channel batches bursts into one message, up to 10 lines or 1 s apart.
+- **When Discord is unreachable:**
+  - messages wait in their queues and go out later marked "delayed", with their original time;
+  - the tac queue holds up to 200 messages and never drops a tac while it has room;
+  - the all-messages queue holds 500 and drops the oldest first, posting "N messages dropped"
+    once it can send again.
+- **The archive stays the record.** Discord is a convenience view: a message that never reaches
+  Discord is still in the archive.
+- **Privacy:** team names, booth names and Home Assistant user names leave the venue LAN through
+  Discord. The owner chooses this by entering a URL. The README says so.
+
 ---
 
 ## 6. Piece 2 — Unity Intercom integration
@@ -789,6 +853,9 @@ method for each.
   - during live matches, only press-path alerts go to the beacon;
   - critical alerts fire for a dead press path, for a match going live without a passed coach
     test, and for a wrong-server binding.
+- **Discord:** tac messages are edited when the pause starts, failed tacs are shown, and the
+  level mapping, queue sizes and batching are as in §5.13. The all-messages level defaults to
+  off.
 - **Sounds** (decided by the owner, not a builder's call): a single short beep for an accepted
   tac and a passed coach-test hold; nothing else for now (§5.11).
 - **The Unity integration:** the beep is a constant tone on the bot's input, with no app on the

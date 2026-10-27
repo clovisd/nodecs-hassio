@@ -77,6 +77,12 @@ spec is updated where results differ.
 - **The archive** (§5.6): `press_sent` and `press_outcome`, reconciliation of foreign presses,
   the cross-day hash chain with head hash, and export.
 - **Events** (§5.7).
+- **Discord webhooks** (§5.13):
+  - the options for the two URLs, the level (default off) and a test message;
+  - one background sender per webhook, following rate limits, with the specified queues and
+    batching;
+  - the tac message, edited when the pause starts;
+  - URLs redacted everywhere.
 - **Health checks and alerts** that need only the panel, ZHA and SMLIGHT (§5.8):
   - press path alive;
   - every-match binding check (without TeamSpeak);
@@ -93,6 +99,10 @@ spec is updated where results differ.
 - In tests, the time from `zha_event` to the press request is under 10 ms, with no await on a
   read, the archive or an outcome in between.
 - A forced archive write failure alerts without delaying a send.
+- **Discord:**
+  - nothing is posted when no URL is set, or when the all-messages level is off;
+  - a Discord outage or a `429` never delays a press;
+  - a tac message is edited when its pause starts.
 - The chain verifies across two days.
 - Leak scan clean; CI green.
 
