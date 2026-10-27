@@ -162,8 +162,10 @@ starts in under 50 ms of the request.
 **New repo. Spec:** §8, §9.
 
 - The devices, entities, `coachpc.play_sound`, and the alerts in NodeCS.
-- Coach test beeps (hold 3 s, twice).
-- Live-press confirmations, if the owner wants them (spec §12).
+- **The coach test beep:** hold 3 s, twice; one short beep on a pass, none on a wrong team.
+- **The live tac beep:** one short beep in the pressing booth's headset when a **tac (hold)** is
+  accepted (`EXECUTED`). There is no sound for a tap, a failure or a pause starting, for now
+  (spec §5.11).
 
 **Acceptance:** a full dry run on staging with two booths. The admin test runs with the walker
 hearing beeps. The coach test passes with headset beeps. A pulled headset raises a critical

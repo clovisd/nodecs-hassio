@@ -498,20 +498,32 @@ owner.)
 
 1. The admin starts it for a matchup.
 2. Each coach is asked to **hold the button for 3 seconds**.
-3. When the hold reaches the panel as `TEST` for the team at that booth, the coach PC plays a
-   confirmation beep in the coach's headset (`coachpc.play_sound`, piece 4). Their tile turns
-   green with the latency.
-4. This is done **twice** per coach. A wrong-team match turns the tile red, plays an error tone
-   instead, and names the team the panel matched.
+3. When the hold reaches the panel as `TEST` for the team at that booth, the coach PC plays
+   **the beep** in the coach's headset (`coachpc.play_sound`, piece 4). Their tile turns green
+   with the latency.
+4. This is done **twice** per coach. On a wrong-team match the coach hears **no beep**. Their
+   tile turns red and names the team the panel matched, so the admin sorts it out. (There is
+   one sound only for now; see "Sounds" below.)
 
 Without piece 4 the test still runs; the admin tells the coach.
 
-**Live presses.** Once a match is live, NodeCS also plays a short "request accepted" sound in
-the pressing booth's headset when the panel answers `EXECUTED`, and an error tone on any
-failure. The pause itself may start later, at the next point the server allows (§5.1), so the
-sound means "your call is in", not "paused now". This is the coach's only direct confirmation
-besides the pause itself. It can be switched off per event. (Builder's proposal; whether it is
-wanted in matches, and whether a second cue when the pause starts would help, is §12 Q4.)
+**Sounds: the minimum for now.** The owner, 2026-10-28: "For now, on sounds we want the minimum,
+and we can expand later. For now, we want a beep when a tac is registered. No words, just short
+beep that a tac has been requested and sent."
+
+- **One sound exists: a short beep. No words, and no other tones.**
+- **In a live match:** the coach hears the beep in their headset when their **tac (hold)** is
+  accepted by the panel (`EXECUTED`, meaning requested and sent; the pause may start later,
+  §5.1).
+- **Nothing else makes a sound for now:**
+  - a tech pause (tap);
+  - a failed press;
+  - a pause actually starting.
+  Failures go to the admin as alerts (§5.8), never into the coach's ear.
+- **In the coach test:** the same beep marks a passed hold (above).
+- **Later:** the coach PC app and integration keep a sound name in their API, so more sounds
+  can be added without changing the contract.
+- It can be switched off per event.
 
 ### 5.12 Security
 
@@ -613,8 +625,10 @@ mode playing a beep into the cable on demand.)
 2. **Audio in shared mode only:**
    - never take a device exclusively;
    - never change the default device, a device's volume or mute, or any device setting.
-3. **Preloaded sounds:** a few short WAVs held in memory. Playing one opens a shared-mode stream
-   on the configured output device and closes it when done.
+3. **Preloaded sounds:** for now **one short beep** (owner, 2026-10-28: "No words, just short
+   beep"), held in memory as a WAV. The API takes a sound name so more can be added later.
+   Playing one opens a shared-mode stream on the configured output device and closes it when
+   done.
    - The app's audio session **opts out of Windows communications ducking**
      (`IAudioSessionControl2::SetDuckingPreference(TRUE)`, a per-session setting). Otherwise
      Windows would turn the beep down while TeamSpeak is in a call. It never changes the
@@ -651,7 +665,7 @@ mode playing a beep into the cable on demand.)
 
 ### 7.3 What it does
 
-- `POST /sound` `{ "name": "ok" | "error" | "attention", "volume": 0–100 }`: plays a preloaded
+- `POST /sound` `{ "name": "beep", "volume": 0–100 }` (only `beep` for now): plays a preloaded
   sound into the configured output. It answers when playback has **started**, with the time
   from request to first sample.
 - `GET /events` (Server-Sent Events): pushes status changes as they happen, for example
@@ -775,7 +789,8 @@ method for each.
   - during live matches, only press-path alerts go to the beacon;
   - critical alerts fire for a dead press path, for a match going live without a passed coach
     test, and for a wrong-server binding.
-- **Live presses** get a confirmation in the booth's headset (switchable; §12 Q4).
+- **Sounds** (decided by the owner, not a builder's call): a single short beep for an accepted
+  tac and a passed coach-test hold; nothing else for now (§5.11).
 - **The Unity integration:** the beep is a constant tone on the bot's input, with no app on the
   bot PC. Only direct-talk buttons are used, and UDP 20119 is firewalled to Home Assistant.
 - **The coach PC app:**
@@ -802,8 +817,9 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
    channel (§4, §5.10).
 3. Names for the three new repos and integrations. Suggested: `unityintercom-hassio` with
    domain `unity_intercom`, and `coachpc` with `coachpc-hassio`.
-4. Are live-press headset confirmations ("request accepted") wanted during matches, or only in
-   tests? Would a second cue when the pause actually starts help the coach, or distract them?
+4. ~~Live-press headset sounds?~~ **Answered, 2026-10-28:** the minimum for now. One short beep,
+   no words, when a tac is requested and sent; nothing else. It will be expanded later
+   (§5.11).
 5. Who besides Home Assistant admins may open the page or start tests?
 6. Retention: "always archive". Is a manual export-and-clear between events acceptable, or must
    files never be removed?
