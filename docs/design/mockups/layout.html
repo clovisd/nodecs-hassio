@@ -1,0 +1,77 @@
+<h2>Button readiness page: my first guess</h2>
+<p class="subtitle">One card per matchup (server). Everything below is a guess for you to correct. The numbers are made up.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Home Assistant sidebar → "Match buttons"</div>
+  <div class="mockup-body" style="font-size:14px">
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:8px 12px;border-radius:8px;background:rgba(127,127,127,.12);margin-bottom:14px">
+      <strong>Panel</strong>
+      <span>● Live updates: <b style="color:#2e9e5b">on</b></span>
+      <span>Read time: <b>142 ms</b> (p95 210 ms)</span>
+      <span>Button key: <b style="color:#2e9e5b">accepted</b></span>
+      <span>Zigbee network: <b style="color:#2e9e5b">ok</b>, coordinator online</span>
+    </div>
+
+    <div style="border:1px solid rgba(127,127,127,.35);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div><strong style="font-size:16px">Server 1</strong> · Alpha vs Bravo · Nuke · <span style="color:#c98a00">warmup</span></div>
+        <div style="display:flex;gap:8px">
+          <button class="mock-button">Admin test: Go</button>
+          <button class="mock-button" style="opacity:.85">Ask coaches to press</button>
+        </div>
+      </div>
+
+      <table style="width:100%;margin-top:10px;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;opacity:.7">
+          <th>Team</th><th>Button (Zigbee)</th><th>Panel ID → action</th><th>Signal</th><th>Last seen</th><th>Battery</th><th>Admin test</th><th>Coach test</th><th>Last press → panel</th>
+        </tr>
+        <tr style="border-top:1px solid rgba(127,127,127,.25)">
+          <td>A · Alpha</td><td>Booth A1 left</td><td>a1-left-tac → Tac pause<br>a1-left-tech → Tech pause</td>
+          <td>LQI 212 / −58 dBm</td><td>4 s ago</td><td>94 %</td>
+          <td style="color:#2e9e5b">✓ 38 ms</td><td style="color:#2e9e5b">✓ 41 ms</td><td>test · 41 ms</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(127,127,127,.25)">
+          <td>B · Bravo</td><td>Booth A1 right</td><td>a1-right-tac → Tac pause<br>a1-right-tech → Tech pause</td>
+          <td style="color:#c98a00">LQI 96 / −81 dBm ⚠</td><td>2 min ago</td><td>88 %</td>
+          <td style="color:#2e9e5b">✓ 52 ms</td><td style="color:#c98a00">⏳ waiting</td><td>—</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="border:1px solid rgba(127,127,127,.35);border-radius:10px;padding:12px">
+      <strong>Press log (accountability)</strong>
+      <table style="width:100%;margin-top:8px;border-collapse:collapse;font-size:12px">
+        <tr style="text-align:left;opacity:.7"><th>Received (HA)</th><th>Button</th><th>Gesture</th><th>Sent → panel answered</th><th>Outcome</th><th>Panel's detail</th><th>Automations run</th></tr>
+        <tr><td>22:26:44.031</td><td>a1-left-tac</td><td>long press</td><td>22:26:44.033 → .074 (41 ms)</td><td style="color:#2e9e5b">executed</td><td>tac pause for Alpha requested</td><td>Beacon A1 left: spin 30 s</td></tr>
+        <tr><td>22:19:02.510</td><td>a1-right-tech</td><td>short press</td><td>22:19:02.512 → .560 (48 ms)</td><td>test</td><td>match not live, reported only</td><td>—</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px">What should "Admin test: Go" do?</h3>
+<p class="subtitle">Click the one closest to what you meant, or tell me in the terminal.</p>
+<div class="options">
+  <div class="option" data-choice="walk" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Start a walk-round</h3>
+      <p>Go opens a test window. The admin presses each physical button, and the page ticks each one off with its latency and the team the panel matched it to. It tests the button, the radio and the panel together.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="synthetic" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>One-click path check</h3>
+      <p>Go sends a test press for every bound button from Home Assistant to the panel, without touching the buttons. It checks the key, the bindings and the round trip in a second. The coach test then covers the physical buttons.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="both" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Both</h3>
+      <p>The one-click check first, then the walk-round.</p>
+    </div>
+  </div>
+</div>

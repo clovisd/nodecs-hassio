@@ -1,0 +1,68 @@
+<h2>The two tests</h2>
+<p class="subtitle">The admin test is thorough; the coach test is the same idea, cut down to "does my button work?". Both are saved for good. The numbers are made up.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Admin test · Server 1 · Alpha vs Bravo · test #42 · by admin</div>
+    <div class="mockup-body" style="font-size:12px">
+      <strong>1 · Path check</strong> <span style="opacity:.7">(a test press for every bound ID, sent by Home Assistant)</span>
+      <table style="width:100%;margin:4px 0 10px;border-collapse:collapse">
+        <tr style="text-align:left;opacity:.7"><th>Panel ID</th><th>Binding</th><th>Round trip</th><th>Panel's verdict</th><th></th></tr>
+        <tr><td>a1-left-tac</td><td>Tac · Alpha</td><td>37 ms</td><td>test, reported only</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-left-tech</td><td>Tech · Alpha</td><td>38 ms</td><td>test, reported only</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-right-tac</td><td>Tac · Bravo</td><td>47 ms</td><td>test, reported only</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-right-tech</td><td>Tech · Bravo</td><td>39 ms</td><td>test, reported only</td><td style="color:#2e9e5b">✓</td></tr>
+      </table>
+      <strong>2 · Walk-round</strong> <span style="opacity:.7">(press each button, each gesture)</span>
+      <table style="width:100%;margin:4px 0 10px;border-collapse:collapse">
+        <tr style="text-align:left;opacity:.7"><th>Button</th><th>Gesture</th><th>→ panel</th><th>Matched to</th><th>Signal</th><th></th></tr>
+        <tr><td>A1 left</td><td>short</td><td>39 ms</td><td>Tech · Alpha</td><td>LQI 212</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>A1 left</td><td>long</td><td>41 ms</td><td>Tac · Alpha</td><td>LQI 208</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>A1 right</td><td>short</td><td>—</td><td>—</td><td>LQI 96 ⚠</td><td style="color:#c98a00">⏳ press now</td></tr>
+        <tr><td>A1 right</td><td>long</td><td>—</td><td>—</td><td></td><td style="color:#c98a00">⏳</td></tr>
+      </table>
+      <div style="opacity:.8">⚠ A1 right: weak signal, routed through "Router B2".</div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="mock-button">Repeat a step</button><button class="mock-button">Fail with a note</button><button class="mock-button">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Coach test · Server 1 · Alpha vs Bravo · by admin</div>
+    <div class="mockup-body" style="font-size:13px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px;border:2px solid #2e9e5b;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:15px"><b>Alpha</b> · booth A1 left</div>
+          <div style="font-size:34px;color:#2e9e5b;margin:6px 0">✓</div>
+          <div>Short press: tech pause ✓ 39 ms</div>
+          <div>Long press: tac pause ✓ 41 ms</div>
+          <div style="opacity:.7;margin-top:6px">Beacon spun to confirm</div>
+        </div>
+        <div style="flex:1;min-width:180px;border:2px dashed #c98a00;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:15px"><b>Bravo</b> · booth A1 right</div>
+          <div style="font-size:34px;color:#c98a00;margin:6px 0">⏳</div>
+          <div>Waiting for the coach</div>
+          <div style="opacity:.7;margin-top:6px">Beacon flashing: "press your button"</div>
+        </div>
+      </div>
+      <p style="opacity:.75;margin-top:10px">Before the match is live, the panel only reports these presses, so nothing pauses. If a press lands on the wrong team, the tile goes red and names the team the panel matched it to.</p>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:22px">Calls I'd make. Click any you disagree with.</h3>
+<div class="options" data-multiselect>
+  <div class="option" data-choice="blocked-live" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content"><h3>No tests while the match is live</h3><p>Once the match is live, a test press is a real pause, so both tests are disabled.</p></div>
+  </div>
+  <div class="option" data-choice="archive-all" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content"><h3>The archive keeps every real press too</h3><p>Every press in every match, with its timings and outcome, kept for good and exportable, not just the tests.</p></div>
+  </div>
+  <div class="option" data-choice="beacon-feedback" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content"><h3>The coach sees the result on the booth's beacon</h3><p>The beacon flashes for "press your button now" and spins briefly when the press reached the panel for the right team. That way the coach needs no screen.</p></div>
+  </div>
+</div>
