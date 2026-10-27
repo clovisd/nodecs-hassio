@@ -154,6 +154,17 @@
       "live_updates": {
         "name": "Live updates"
       }
+    },
+    "image": {
+      "team_a_logo": {
+        "name": "Team A logo"
+      },
+      "team_b_logo": {
+        "name": "Team B logo"
+      },
+      "map_image": {
+        "name": "Map"
+      }
     }
   }
 }
