@@ -206,8 +206,9 @@ so a new field is a reviewed change.
   unavailable until the next good read.
 - **Connections are reused:** Home Assistant's shared HTTP session keeps them alive, so a poll
   does not pay for a TLS handshake.
-- **401** on any read or on the channel: Home Assistant starts its re-authentication flow ("NodeCS
-  needs its login again"); the entities go unavailable until it is done. No grace for a 401.
+- **401** on a read: Home Assistant starts its re-authentication flow ("NodeCS needs its login
+  again"); the entities go unavailable until it is done. No grace for a 401. A 401 on the channel
+  is treated as a drop; the next read, within 1 s, raises the re-authentication.
 - **GraphQL `errors`:** a failed read; the first message is in the log.
 - **Servers added on the panel:** their devices and entities are added at the next match read.
 - **Servers deleted on the panel:** their entities go unavailable; the device can then be deleted
