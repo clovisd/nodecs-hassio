@@ -12,16 +12,19 @@
      Phase 0.**
   3. `docs/design/mockups/`, the page layouts the owner approved.
   4. `docs/retro/2026-10-28-session-retro.md`, what happened and the rules it left.
-- **Next action:** ask the owner the open spec §12 questions: Q3 (names), Q5 (page access),
-  Q6 (retention), Q7 (network). Q1, Q2 and Q4 were answered on 2026-10-28. Then run Phase 0 (verify the unknowns) with the owner present. Several steps are
+- **All design questions are answered** (spec §12).
+- **Next action:** Phase 0 (verify the unknowns) with the owner present. Several steps are
   writes on staging and need their OK.
+- **The repo is private** since 2026-10-28, at the owner's request. HACS cannot install or
+  update NodeCS while it is private. The no-names rule still applies, in case it goes public
+  again.
 - **Later:** an admin-timer integration (an existing tool with its own API) as a second check on
   booth teams; it needs its own brainstorm.
 
 ## Rules the owner set
 
-- **Public repo:** never name the panel's product, the event, its hosts or real teams. Say "the
-  panel".
+- **No names in the repo** (private now, possibly public later): never name the panel's
+  product, the event, its hosts or real teams. Say "the panel".
 - **The panel:** use staging, never production, and stay read-only unless the owner approves a
   specific write. Credentials come from the owner in the session; never store them anywhere.
 - **Coach PCs:** zero impact on TeamSpeak (spec §7.1).

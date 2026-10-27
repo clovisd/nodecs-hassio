@@ -3,14 +3,17 @@
 **Date:** 2026-10-28 · **Status:** design agreed in conversation with the owner ("Looks good",
 2026-10-28); not built. Red-team and blind-builder checks (Fable 5.1) were run on the first draft;
 their findings are folded in below and listed in §13. After the checks the owner answered §12
-Q1, Q2 and Q4 and added Discord webhooks (§5.13, approved "looks good"); §12 Q3 and Q5–Q7 stay
-open.
-**Repos:** `clovisd/nodecs-hassio` (this one, piece 1), and three repos that do not exist yet
-(pieces 2–4; names in §12).
+Q1, Q2 and Q4 and added Discord webhooks (§5.13, approved "looks good"). Later the same day the
+owner answered Q3 and Q5–Q7 (names, page access with a standalone page, retention, network): no
+questions remain open. A second red-team and blind-builder check ran on this version (§13).
+**Repos:** `clovisd/nodecs-hassio` (this one, piece 1; **private since 2026-10-28**), and three
+repos that do not exist yet: `unityintercom-hassio` (piece 2), `coachpc` (piece 3) and
+`coachpc-hassio` (piece 4).
 **Builds on:** `2026-10-27-nodecs-hassio-design.md` (NodeCS v0.1, read-only, shipped).
 
-This public repo never names the panel's product, the event, its hosts, or real teams. It says
-"the panel". Keep it that way in every document and commit.
+This repo never names the panel's product, the event, its hosts, or real teams. It says "the
+panel". It is private for now, but may go public again, so keep it that way in every document
+and commit.
 
 ---
 
@@ -107,9 +110,11 @@ Four pieces, built in this order (see the build plan):
 
 1. **NodeCS v0.2** (this repo): the button path, the archive, the readiness page, the tests,
    and the health checks.
-2. **Unity Intercom integration** (new repo): the Unity server and bot clients as devices.
-3. **Coach PC app** (new repo): a small Windows app with a LAN API.
-4. **Coach PC integration** (new repo): each coach PC as a device in Home Assistant.
+2. **Unity Intercom integration** (`unityintercom-hassio`, domain `unity_intercom`): the Unity
+   server and bot clients as devices.
+3. **Coach PC app** (`coachpc`, Go): a small Windows app with a LAN API.
+4. **Coach PC integration** (`coachpc-hassio`, domain `coachpc`): each coach PC as a device in
+   Home Assistant.
 
 NodeCS works without 2–4 (tests run without beeps, booth health shows only Zigbee and the
 panel). Pieces 2 and 4 work on their own in any automation.
@@ -317,6 +322,8 @@ For each press NodeCS records:
   - every export includes the head hash, so a copy kept elsewhere proves later files were not
     rewritten. (Red team R10c.)
 - **Export:** CSV or JSON, for a day, a match or a test run, from the page.
+- **Retention: never delete** (owner, 2026-10-28). NodeCS never removes or rotates archive files,
+  and offers no "clear" action. Disk use is shown on the page.
 - **Writing:** a dedicated writer task, off the event loop, flushed and fsynced per record. A
   write failure raises a critical alert. It never blocks or delays a send.
 - **Size:** a few KB per match.
@@ -372,9 +379,16 @@ survey. Never update the coordinator, ZHA or Home Assistant during an event. (Re
 
 ### 5.9 The readiness page
 
-- **Placement:** a Home Assistant **sidebar panel** registered by NodeCS. It is a web component
-  served from the integration, admin users only, and talks to NodeCS over Home Assistant's
-  WebSocket API: one subscription for live state, plus commands for tests and booth edits.
+- **Placement:** a Home Assistant **sidebar panel** registered by NodeCS, plus a **standalone
+  page** (§5.9.1). Both are the same web component.
+  - In Home Assistant it talks to NodeCS over Home Assistant's WebSocket API: one subscription
+    for live state, plus commands for tests, team assignments and booth edits.
+- **Who may do what** (owner, 2026-10-28):
+  - **Home Assistant admins:** everything, including booth editing.
+  - **Non-admin Home Assistant users:** see the page read-only (status, presses, tests,
+    archive), but cannot start tests, assign teams, edit booths or export.
+  - Every WebSocket command checks the role server-side; the page hiding buttons is not the
+    check.
 - **Status strip:**
   - the panel: answering, live updates, read time p50/p95;
   - the button key;
@@ -396,6 +410,48 @@ survey. Never update the coordinator, ZHA or Home Assistant during an event. (Re
 - The mockups in `docs/design/mockups/` show the layout and content the owner reacted to, not
   final styling. **Where they disagree with this spec, the spec wins.** For example, the
   mockups show a booth beacon, which does not exist, and an older path check. (Blind B4.)
+
+#### 5.9.1 The standalone page
+
+The owner, 2026-10-28: "if there's a way to serve it as a standalone page too, so it can be
+directly accessed without HA ui / frame, and make that page password protected".
+
+**What it is:** NodeCS serves the same page at `/nodecs/board/` on Home Assistant's own port, as
+a plain page outside Home Assistant's frontend and login. It suits a lobby screen or a staff
+laptop. It is **off unless a password is set.**
+
+**Two roles,** each with its own password in NodeCS's options. An empty password turns that role
+off.
+
+| Role | Can |
+|---|---|
+| **Viewer** | Everything a non-admin Home Assistant user sees: status, presses, tests and the archive, read-only |
+| **Operator** | Viewer, plus start and stop tests, choose the walker, and assign teams to booths. Booth editing, NodeCS's options and archive export stay Home Assistant admin-only. |
+
+**Accountability:** the login form also asks **who you are** (a free-text name). That name and
+the role are archived with every action taken from the standalone page, and with every login
+and logout. Actions taken in Home Assistant use the Home Assistant user.
+
+**Security** (builder's calls; the owner's network keeps these pages on a VLAN players cannot
+reach):
+
+- **Passwords** are stored as scrypt hashes in the options, never in plain text, and never
+  logged.
+- **Sessions:** a random token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` when Home
+  Assistant serves HTTPS). It expires after 12 hours, and changing a password ends every session
+  of that role.
+- **Logins** are limited to 5 tries a minute per IP, then a 5-minute lockout. Every failed login
+  is archived, and a burst raises a warning alert.
+- **Actions:** every state-changing request carries a CSRF token and is checked server-side
+  against the role.
+- **Its own narrow endpoints only:**
+  - a Server-Sent Events stream for live state, using the same data as the Home Assistant
+    WebSocket subscription;
+  - a few POST commands for the operator actions.
+  - It never exposes Home Assistant's API, tokens, the panel's login, the button key, the
+    Discord URLs, or the coach PC tokens.
+- **Response headers:** `Content-Security-Policy` limited to the page's own assets,
+  `X-Frame-Options: DENY`, and `Cache-Control: no-store`.
 
 ### 5.10 The team at each booth, and the binding check
 
@@ -528,13 +584,13 @@ beep that a tac has been requested and sent."
 
 ### 5.12 Security
 
-- **Verify TLS with the event's own CA.** The config flow accepts a **CA certificate (PEM)** and
-  builds a custom SSL context, so "Verify SSL certificate" can stay on with the event's CA.
-  With verification off on a shared LAN, an ARP-spoofing player could capture the admin login
-  (full panel and RCON control) and the button key (pause any match, replayable). Unticking
-  verification stays possible, with a warning in the form and a repair issue. (Red team R9.)
-- **The network:** Home Assistant, the panel and the coach PCs belong on a network players
-  cannot reach. That is a recommendation in the README; the owner's network is out of scope.
+- **The network:** the owner confirmed (2026-10-28) that Home Assistant, the panel and the
+  coach PCs are on a **separate VLAN players cannot reach**. That is what the design relies on,
+  and the README states it as a requirement.
+- **Verify TLS with the event's own CA (defence in depth):** the config flow accepts a **CA
+  certificate (PEM)** and builds a custom SSL context, so "Verify SSL certificate" can stay on
+  with the event's CA. With the VLAN in place this is a nice-to-have, not a must. Unticking
+  verification stays possible. (Red team R9.)
 - **The button key** is its own config-entry field:
   - it is **optional:** after upgrading from v0.1, NodeCS keeps working read-only, and a repair
     issue asks for the key (blind B6);
@@ -542,7 +598,7 @@ beep that a tac has been requested and sent."
     press path;
   - it is never logged or put in events.
 - **The admin login:** unchanged from v0.1.
-- **The page** is admin-only, and its WebSocket commands check `user.is_admin`.
+- **The page:** roles as in §5.9 and §5.9.1, checked server-side on every command.
 - **The archive** holds user names and panel IDs, but no keys.
 
 ### 5.13 Discord webhooks
@@ -870,8 +926,11 @@ method for each.
   - its API is firewalled to Home Assistant.
 - **Security:** an optional CA certificate keeps TLS verification on. The button key is
   optional on upgrade and can be replaced without a reload.
-- **The page** is a web component served by NodeCS, admin only. Where the mockups and this spec
-  disagree, the spec wins.
+- **The page** is one web component, served both as a sidebar panel and as a standalone page.
+  - Roles: admin, read-only non-admin, and standalone viewer and operator.
+  - The standalone page's security is as in §5.9.1: scrypt hashes, cookie sessions, a login
+    limit, CSRF, strict headers, and the operator's name archived.
+  - Where the mockups and this spec disagree, the spec wins.
 - **Booths** store the server name beside its id and can be re-linked.
 
 ## 12. Open questions for the owner
@@ -886,16 +945,18 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
    TeamSpeak first (it is sometimes updated late), then an admin override that **assigns** a
    booth's team directly. Later, an admin-timer integration adds a second confirmation of the
    channel (§4, §5.10).
-3. Names for the three new repos and integrations. Suggested: `unityintercom-hassio` with
-   domain `unity_intercom`, and `coachpc` with `coachpc-hassio`.
+3. ~~Names.~~ **Answered, 2026-10-28:** `unityintercom-hassio` (domain `unity_intercom`),
+   `coachpc` (the Go app), `coachpc-hassio` (domain `coachpc`).
 4. ~~Live-press headset sounds?~~ **Answered, 2026-10-28:** the minimum for now. One short beep,
    no words, when a tac is requested and sent; nothing else. It will be expanded later
    (§5.11).
-5. Who besides Home Assistant admins may open the page or start tests?
-6. Retention: "always archive". Is a manual export-and-clear between events acceptable, or must
-   files never be removed?
-7. Is Home Assistant, the panel and coach PC network separated from the players' network? This
-   decides how urgent the CA-certificate option is.
+5. ~~Page access.~~ **Answered, 2026-10-28:** admins do everything, and other Home Assistant
+   users see the page read-only. There is also a password-protected standalone page outside
+   Home Assistant's interface (§5.9.1).
+6. ~~Retention.~~ **Answered, 2026-10-28:** never delete.
+7. ~~Network.~~ **Answered, 2026-10-28:** a separate VLAN players cannot reach.
+
+All questions are answered.
 
 ## 13. Review findings folded in
 

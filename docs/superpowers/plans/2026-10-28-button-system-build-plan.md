@@ -111,8 +111,13 @@ spec is updated where results differ.
 **Repo:** nodecs-hassio. **Spec:** §5.9–§5.11. The mockups are in `docs/design/mockups/`;
 where they differ from the spec, the spec wins.
 
-- The sidebar panel (a web component served by the integration, admin only) and the WebSocket
-  API.
+- **The sidebar panel and the WebSocket API:** admins do everything, and non-admin Home
+  Assistant users are read-only.
+- **The standalone page** at `/nodecs/board/` (spec §5.9.1):
+  - viewer and operator passwords (scrypt hashes), with the name of whoever logs in archived;
+  - cookie sessions, the login rate limit and lockout, CSRF;
+  - an SSE state stream and strict headers;
+  - off unless a password is set.
 - Booth editing.
 - **The admin test:**
   - the path check uses the **sentinel ID and the bindings read, never a bound ID**;
@@ -137,10 +142,15 @@ where they differ from the spec, the spec wins.
 - No code path sends a press to a bound ID except a physical press.
 - Every test step is archived with the user who ran it.
 - The page works on a phone-width screen.
+- **The standalone page:**
+  - a viewer cannot reach any operator endpoint, even with hand-made requests;
+  - the 6th login try within a minute is refused;
+  - a password change ends that role's sessions;
+  - no secret appears in any response.
 
 ## Phase 3 — Unity Intercom integration
 
-**New repo** (name from spec §12). **Spec:** §6.
+**New repo:** `unityintercom-hassio`, domain `unity_intercom`. **Spec:** §6.
 
 - The server device and its users.
 - The emulated Stream Deck for the bot client: poll handshake, labels → user map, Keydown/Keyup,
@@ -153,7 +163,7 @@ A dropped Keyup is recovered by the watchdog. The page shows the walker's beep s
 
 ## Phase 4 — Coach PC app
 
-**New repo** (Go, Windows). **Spec:** §7.
+**New repo:** `coachpc` (Go, Windows). **Spec:** §7.
 
 - `/status`, `/sound`, `/events`.
 - The settings page.
@@ -169,7 +179,7 @@ starts in under 50 ms of the request.
 
 ## Phase 5 — Coach PC integration and wiring
 
-**New repo. Spec:** §8, §9.
+**New repo:** `coachpc-hassio`, domain `coachpc`. **Spec:** §8, §9.
 
 - The devices, entities, `coachpc.play_sound`, and the alerts in NodeCS.
 - **The coach test beep:** hold 3 s, twice; one short beep on a pass, none on a wrong team.

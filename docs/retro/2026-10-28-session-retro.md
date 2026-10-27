@@ -108,5 +108,11 @@ The owner settled four things:
   - a server re-listed after its device was deleted gets no entities until a reload;
   - a logo re-uploaded at the same URL isn't refetched.
 - The timeout button system: Phase 0 first (build plan).
-- Spec §12 Q3 (repo names), Q5 (page access), Q6 (retention), Q7 (network separation).
-- The `docs/button-system` branch is local, not merged or pushed. The owner decides when.
+- None of the spec §12 questions remain open. The owner answered Q3 and Q5–Q7 the same day:
+  - names `unityintercom-hassio` and `coachpc` / `coachpc-hassio`;
+  - admins do everything and other users are read-only, plus a password-protected standalone
+    page;
+  - the archive is never deleted;
+  - Home Assistant, the panel and the coach PCs are on a separate VLAN.
+- The repo was made **private** on 2026-10-28, at the owner's request. HACS can't install it
+  while private.
