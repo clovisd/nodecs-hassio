@@ -128,6 +128,7 @@ panel). Pieces 2 and 4 work on their own in any automation.
 | Every press is logged: `buttonPresses(buttonID, matchID, limit)` → `id`, `buttonID`, `pressedAt`, `match`, `outcome` (`NONE`, `TEST`, `EXECUTED`, `ERROR`), `detail`. | Schema; staging showed `executed` / "tac pause for &lt;team&gt; requested". |
 | "Before the match is live, presses are only reported, so you can check each button is wired to the right team." | The panel's Buttons dialog. |
 | Newer panel builds have `buttonOutages(buttonIDs, limit)` → `buttonID`, `startedAt`, `endedAt`, `detail`. | Staging schema only. |
+| **A press is a request, not an instant pause.** A tac pause "may not actually trigger a tac right away, and instead queue it for next possible time per server support … It won't allow it to fire right away normally." So `EXECUTED` means *requested* (the detail reads "tac pause for &lt;team&gt; requested"); the pause itself starts later and shows up in the match's `pauses`. | The owner, 2026-10-28; the staging press log. |
 
 **Not yet known, and the build must find out first (Phase 0):**
 
@@ -136,6 +137,9 @@ panel). Pieces 2 and 4 work on their own in any automation.
 - What the panel does with the same button ID pressed twice in a row, during a running pause
   and outside one: a second pause, an error, or nothing.
 - What `NONE` means (unbound button? no match on the server?).
+- How long a requested pause waits, by type: does a technical pause start at once while a
+  tactical one waits for the next freeze time? Is a pending, not-yet-started request visible
+  anywhere in the API? What does a second press do while one is pending?
 - Exactly when the panel stops "only reporting" and starts executing: which phases, and whether
   it uses `liveAt`. Staging showed a match in `WARMUP` with `liveAt` set (a restored match), so
   `liveAt` alone is not the answer.
@@ -240,12 +244,24 @@ booth list. For each event:
    - `401` or `403`: the button key was refused. Failed, no retry. A repair issue and a critical
      alert are raised.
    - Other `4xx`: failed, no retry.
-6. **Confirm:** after delivery NodeCS asks the match coordinator for an immediate read. It also
-   reads the press log for this ID to get the panel's `outcome` and `detail`, waiting up to 2 s
-   for the entry to appear.
+6. **Confirm the request:** after delivery NodeCS reads the press log for this ID to get the
+   panel's `outcome` and `detail`, waiting up to 2 s for the entry to appear. `EXECUTED` means
+   the pause was **requested** and accepted, not that the game has paused (§5.1). NodeCS also
+   asks the match coordinator for an immediate read.
 7. **Record and announce:**
    - the archive gets a `press_outcome` record (§5.6);
    - `nodecs_button_press` fires with every field, minus secrets.
+8. **Watch for the pause to start:**
+   - after an `EXECUTED` press NodeCS watches that server's match for the **first new pause by
+     that team** of the matching kind (`TACTICAL` for a hold, `TECHNICAL` for a tap) starting
+     after the request;
+   - when it appears, the archive gets a `pause_started` record linked to the press, and
+     `nodecs_pause_started` fires with the delay;
+   - until then the page shows the press as **"requested, waiting for the server"**, with how
+     long it has waited. That wait is the game's rule, not a fault, so it is never an alert by
+     itself;
+   - if the match ends, or the team's timeouts-left count drops without a matching pause, the
+     page shows it for the admin to judge.
 
 **Failure is loud.** A press that fails, or ends in `ERROR`, raises a persistent notification
 and a critical `nodecs_alert` at once, naming the booth, the team and the reason.
@@ -260,6 +276,7 @@ For each press NodeCS records:
 | `t_sent`, `t_answered`, `t_outcome` | Home Assistant wall clock | When the request started, when the panel answered, when the log entry was read. |
 | `latency_ms` | Monotonic clock | `t_answered − t_zha`, measured on the monotonic clock so an NTP step can't make it negative. (Red team R10d.) |
 | `pressed_at_panel` | Panel | The log entry's `pressedAt`. |
+| `pause_started_at` | Panel | The linked pause's `startedAt` (§5.4 step 8). The time from the request to it is **the game's waiting time**, shown separately and never counted as press latency. |
 
 - The page shows **HA → panel** (`latency_ms`) as the press latency, with the button's own
   decision time (§5.3) beside it as a fixed note.
@@ -274,7 +291,7 @@ For each press NodeCS records:
 - **Storage:** append-only JSON Lines files, one per day:
   `<config>/nodecs/archive/YYYY-MM-DD.jsonl`. NodeCS never prunes or rewrites them, and the
   recorder is not used because it purges.
-- **Record types:** `press_sent`, `press_outcome`, `duplicate_dropped`, `unlinked_press`,
+- **Record types:** `press_sent`, `press_outcome`, `pause_started`, `duplicate_dropped`, `unlinked_press`,
   `foreign_press`, `test_run`, `test_step`, `alert`, `alert_cleared`, `config_change` (booth
   list edits). Each carries:
   - a UTC timestamp and a monotonic sequence;
@@ -304,6 +321,7 @@ For each press NodeCS records:
 |---|---|---|
 | `nodecs_button_received` | Immediately at `t_zha`, before sending | `booth`, `gesture`, `panel_id`, `server_id`, `t_zha` |
 | `nodecs_button_press` | After step 7 of §5.4, for every press, including test-window presses | `booth`, `gesture` (`tap`/`hold`), `panel_id`, `server_id`, `match_id`, `team` (`a`/`b`/`null`, from the bindings), `team_name`, `result` (`delivered`/`failed`), `outcome` (`executed`/`test`/`error`/`none`/`unknown`), `detail`, `t_zha`, `t_sent`, `t_answered`, `latency_ms`, `test_run_id` |
+| `nodecs_pause_started` | The pause a press requested has started (§5.4 step 8) | `booth`, `panel_id`, `server_id`, `match_id`, `team`, `reason` (`tactical`/`technical`), `requested_at`, `started_at`, `waited_s`, `press_seq` |
 | `nodecs_test_step` | Each step of a test | `test_run_id`, `kind` (`admin`/`coach`), `step`, `booth`, `gesture`, `status` (`passed`/`failed`/`waiting`), `latency_ms`, `team_matched`, `note` |
 | `nodecs_alert` | An alert starts or clears | `alert_id`, `severity` (`critical`/`warning`), `source`, `booth`, `message`, `active` |
 
@@ -400,19 +418,21 @@ Nothing is ever changed: bindings stay manual.
 ID. A stale phase read, or the panel executing in a phase assumed to be "report only" (the knife
 round?), would have burned a team's timeout. (Red team R1.)
 
-**Physical presses are always forwarded.** A press is a press, whether or not a test window is
-open. The panel decides whether to execute it or only report it. NodeCS never holds back a
-physical press. (Red team R12, blind B1. Pending the owner's answer to §12 Q1, this follows "we
-cannot miss a button press".)
+**A test window ends when the match starts, for both tests.** The owner, 2026-10-28: "A test
+window should end when a match starts. For both admin and coach test. Once its live, it should go
+live and that's all. A press is a press once live."
 
-**When a test may be started.** Only while the panel would only *report* presses for that
-server's match: the rule comes from Phase 0 (§5.1), and until then **`WARMUP` only**.
-
-- Test windows close by themselves the moment the server's match leaves that phase, from the
-  push channel or the 1 s read.
-- While a test window is open, the page shows a prominent "test window open on Server N" banner,
-  so the admin does not go live during one.
-- Every test is archived, whether it passes, fails or stops.
+- The moment a server's match leaves the test phase (from the push channel or the 1 s read),
+  any admin or coach test open on that server ends. It is archived as ended by the match
+  start, with what had passed so far.
+- From then on every press on that server is a **live press**, forwarded like any other. NodeCS
+  never holds back a physical press, in or out of a test window. (Red team R12 and blind B1,
+  settled by the owner.)
+- **When a test may be started:** only while the panel would only *report* presses for that
+  server's match. The rule comes from Phase 0 (§5.1); until then, **`WARMUP` only**.
+- While a test window is open, the page shows a prominent "test window open on Server N"
+  banner.
+- Every test is archived, whether it passes, fails or ends at the match start.
 
 **Who sits where.** A test compares the team the panel matched with **the team at the booth**.
 The booth list carries no team, so that reference comes from (pending the owner's answer to
@@ -457,10 +477,12 @@ The booth list carries no team, so that reference comes from (pending the owner'
 
 Without piece 4 the test still runs; the admin tells the coach.
 
-**Live presses.** Once a match is live, NodeCS also plays a short confirmation in the pressing
-booth's headset when the panel answers `EXECUTED`, and an error tone on any failure. This is the
-coach's only direct confirmation besides the pause itself. It can be switched off per event.
-(Builder's proposal; the owner did not object; §12 Q4.)
+**Live presses.** Once a match is live, NodeCS also plays a short "request accepted" sound in
+the pressing booth's headset when the panel answers `EXECUTED`, and an error tone on any
+failure. The pause itself may start later, at the next point the server allows (§5.1), so the
+sound means "your call is in", not "paused now". This is the coach's only direct confirmation
+besides the pause itself. It can be switched off per event. (Builder's proposal; whether it is
+wanted in matches, and whether a second cue when the pause starts would help, is §12 Q4.)
 
 ### 5.12 Security
 
@@ -741,11 +763,10 @@ method for each.
 
 Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
 
-1. **A press during an open test window, just as the match goes live.** A coach holding the
-   button for the coach test while the admin clicks go-live would call a real tac pause.
-   Should NodeCS forward it (it is a real press; the design's current default, following "we
-   cannot miss a button press") or hold it back and flag it? Holding it back means a real
-   timeout call in the first seconds of a match could be lost.
+1. ~~A press during an open test window, just as the match goes live.~~ **Answered,
+   2026-10-28:** a test window ends when the match starts, for both tests; once live, a press
+   is a press and is forwarded. A press may be queued by the server until the next possible
+   moment (§5.1, §5.4 step 8, §5.11).
 2. **Who decides which team sits at a booth, for the tests?** Should it be:
    - the booth's coach PC's TeamSpeak channel (automatic, needs the coach PC's TeamSpeak
      nickname);
@@ -753,7 +774,8 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
    - or both, TeamSpeak first and the admin as fallback (the design's current default)?
 3. Names for the three new repos and integrations. Suggested: `unityintercom-hassio` with
    domain `unity_intercom`, and `coachpc` with `coachpc-hassio`.
-4. Are live-press headset confirmations wanted during matches, or only in tests?
+4. Are live-press headset confirmations ("request accepted") wanted during matches, or only in
+   tests? Would a second cue when the pause actually starts help the coach, or distract them?
 5. Who besides Home Assistant admins may open the page or start tests?
 6. Retention: "always archive". Is a manual export-and-clear between events acceptable, or must
    files never be removed?
@@ -780,12 +802,12 @@ Two checks on 2026-10-28, both on Fable 5.1 at the owner's request, read-only:
 | R9 | The login and button key cross a shared LAN with TLS verification off | High | **Changed:** a CA PEM option; network separation recommended; §12 Q7 (§5.12) |
 | R10 | Accountability gaps: a crash before the record, foreign presses, a daily chain, wall-clock deltas, no HA NTP API | Medium | **Changed:** `press_sent`/`press_outcome`, reconciliation, a cross-day chain with exported head hash, monotonic latency, no NTP assumption (§5.5, §5.6) |
 | R11 | The lobby alert fires only after the outcome | Medium | **Changed:** `nodecs_button_received` at `t_zha` (§5.4, §5.7, §9) |
-| R12 | A physical press in a test window after go-live | Medium | **Default: forward.** The owner decides (§12 Q1) |
+| R12 | A physical press in a test window after go-live | Medium | **The owner decided (2026-10-28):** test windows end when the match starts; live presses are forwarded (§5.11) |
 | R13 | Alert fatigue | Medium | **Changed:** hysteresis, live-match mode, distinct beacon patterns (§5.8) |
 | R14 | The Unity latch, and an open UDP control channel | Medium | **Changed:** direct-talk buttons only, firewall, a Phase 0 vanish test (§6.2) |
 | R15 | Coach PC: ducking, the hung-window test, a plain-HTTP API | Low | **Changed:** a per-session ducking opt-out, `IsHungAppWindow`, firewall (§7) |
 | R16 | The warm connection is only probabilistic | Low | **Changed:** a dedicated press connector, kept warm (§5.4) |
-| B1 | Forward or drop a press during a test window after go-live | High | Same as R12: §12 Q1 |
+| B1 | Forward or drop a press during a test window after go-live | High | Same as R12: decided by the owner |
 | B2 | No source of truth for the team at a booth during tests | High | **Default:** TeamSpeak channel, then the admin confirms. The owner decides (§12 Q2) |
 | B3 | Panel clock sync matters to the ambiguity check | High | **Changed:** id-based, clock-free (§5.4); clocks measured in Phase 0 |
 | B4 | The status of the mockups | Medium | **Changed:** committed and sanitised; the spec wins (§5.9) |

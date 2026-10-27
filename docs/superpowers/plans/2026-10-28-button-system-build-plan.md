@@ -33,12 +33,12 @@ Standing rules for every phase:
 ## Phase 0 — Verify the unknowns (no product code)
 
 **Goal:** replace the spec's assumptions with measurements (spec §10). Each item needs the
-owner's OK, because some are writes on staging. **Settle spec §12 Q1 and Q2 with the owner
-first:** they change Phase 1 and 2.
+owner's OK, because some are writes on staging. **Settle spec §12 Q2 with the owner first:**
+it changes Phase 2. (Q1 was answered on 2026-10-28.)
 
 | # | What | How | Decides |
 |---|---|---|---|
-| 0.1 | Press endpoint behaviour | Against **staging**, with a spare button ID bound in a WARMUP match: press once; press twice within 1 s; press during a running pause (does a second timeout queue?); press an unbound **sentinel** ID and note what the panel UI shows (notification? sound?). Record status codes, bodies, `buttonPresses` rows and outcomes, and **whether press ids are ordered**. | §5.4 classification and the id-based ambiguity check; §5.11 sentinel path check |
+| 0.1 | Press endpoint behaviour | Against **staging**, with a spare button ID bound in a WARMUP match: press once; press twice within 1 s; press during a running pause, and while a pause is requested but not yet started (does a second timeout queue?); find how long a tactical and a technical request wait before the pause starts, and whether a pending request is visible in the API; press an unbound **sentinel** ID and note what the panel UI shows (notification? sound?). Record status codes, bodies, `buttonPresses` rows and outcomes, and **whether press ids are ordered**. | §5.4 classification and the id-based ambiguity check; §5.11 sentinel path check |
 | 0.2 | "Report only" rule | The owner steps a test match through every phase, **including the knife round and a restored match**, and a test ID is pressed in each | §5.11 when tests may start |
 | 0.3 | SNZB-01P timing | Confirm ZHA emits `toggle`/`on`/`off`. Log `zha_event` `time_fired` while timing taps and holds on 240 fps video, ten of each. Leave a button idle for a day and log its check-ins. | §5.3; hold at threshold or on release; §5.8 "heard from" thresholds |
 | 0.4 | Duplicates and range | Press 200 times near and far from the coordinator; count duplicate `zha_event`s and their spacing. Run a range survey of the booth positions. | The 1 s window; router placement |
@@ -70,7 +70,9 @@ spec is updated where results differ.
     error types;
   - retries for 10 s, with an alert at 2 s;
   - the id-based ambiguity check, seeded at startup;
-  - the outcome read and refresh.
+  - the outcome read and refresh;
+  - linking each `EXECUTED` press to the pause it started (`pause_started`,
+    `nodecs_pause_started`), with "requested, waiting" shown in the meantime.
 - **Latency** on the monotonic clock (§5.5).
 - **The archive** (§5.6): `press_sent` and `press_outcome`, reconciliation of foreign presses,
   the cross-day hash chain with head hash, and export.
@@ -107,7 +109,8 @@ where they differ from the spec, the spec wins.
   - the walk-round runs without a walker yet;
   - the team at each booth comes from the §12 Q2 answer.
 - The coach test, without beeps.
-- **Test windows** close on a phase change, with a "test window open" banner.
+- **Test windows end when the match starts**, for both tests (the owner's rule). There is a
+  "test window open" banner while one is open.
 - Archive browsing, export and the head-hash display.
 - The binding check with TeamSpeak (`ts3Clients`, read-only).
 

@@ -12,9 +12,9 @@
      Phase 0.**
   3. `docs/design/mockups/`, the page layouts the owner approved.
   4. `docs/retro/2026-10-28-session-retro.md`, what happened and the rules it left.
-- **Next action:** ask the owner spec §12 **Q1** (forward or hold a press during a test window
-  at go-live) and **Q2** (who decides the team at a booth for tests), then the other §12
-  questions. Then run Phase 0 (verify the unknowns) with the owner present. Several steps are
+- **Next action:** ask the owner spec §12 **Q2** (who decides the team at a booth for tests) and
+  the other open §12 questions. Q1 was answered on 2026-10-28: test windows end when the match
+  starts, and a live press may be queued by the server. Then run Phase 0 (verify the unknowns) with the owner present. Several steps are
   writes on staging and need their OK.
 
 ## Rules the owner set
