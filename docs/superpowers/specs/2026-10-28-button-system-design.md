@@ -113,6 +113,11 @@ Four pieces, built in this order (see the build plan):
 NodeCS works without 2–4 (tests run without beeps, booth health shows only Zigbee and the
 panel). Pieces 2 and 4 work on their own in any automation.
 
+**Later, not designed here:** a fifth integration for the **admin timer**, an existing tool with
+its own API. The owner, 2026-10-28: "it can also provide additional confirmation on correct
+channel". It plugs into the team-at-booth rule (§5.10) as a second, corroborating source. It
+needs its own brainstorm once its API is known.
+
 ---
 
 ## 5. Piece 1 — NodeCS v0.2: the button path
@@ -391,9 +396,29 @@ survey. Never update the coordinator, ZHA or Home Assistant during an event. (Re
   final styling. **Where they disagree with this spec, the spec wins.** For example, the
   mockups show a booth beacon, which does not exist, and an older path check. (Blind B4.)
 
-### 5.10 Binding sanity check
+### 5.10 The team at each booth, and the binding check
 
-The page compares three things, for **every** match on the panel:
+**The team at a booth** is the reference for the tests and the binding check. One rule decides
+it everywhere. The owner, 2026-10-28: "first ts (note that sometimes, its updated later), then
+admin with direct overwrite somewhere to ASSIGN a button."
+
+1. **An admin assignment wins.** On each matchup card every booth has an **Assign** control: the
+   admin sets the booth's team for the current match (team A, team B, or clear).
+   - It overrides TeamSpeak for that match only, and is cleared when the server gets a new
+     match.
+   - It is archived as a `config_change` with the admin's user.
+2. **Otherwise, TeamSpeak:** the team whose channel the booth's coach PC is in (below).
+   - Coach PCs are sometimes moved to their team channel late, so a TeamSpeak answer is shown as
+     **"from TeamSpeak"** and re-checked continuously, never frozen.
+3. **Otherwise, unknown:** the page asks for an assignment before a test can judge that booth.
+4. **Later, the admin timer** (§4) adds a second opinion. When it and TeamSpeak agree, the page
+   marks the team **confirmed**. When they disagree, it shows a warning and asks the admin to
+   assign.
+
+The page always shows where a booth's team came from: assigned, TeamSpeak, confirmed, or
+unknown.
+
+**The binding check** compares three things, for **every** match on the panel:
 
 1. the panel's bindings: which team and action each ID is bound to, on which server;
 2. the booth list: which booth owns which IDs, on which server;
@@ -405,8 +430,11 @@ What it raises:
 
 - **Critical:** a booth's ID is bound in a match on **another server**, where the press would
   pause the wrong match. (Red team R8.)
-- **Critical:** a booth's IDs are bound to one team while its coach PC sits in the other team's
-  channel.
+- **Critical:** a booth's IDs are bound to one team while an **admin assignment** puts the
+  other team there.
+- **A TeamSpeak-only mismatch is a warning first,** because the channel may simply not be
+  updated yet. It becomes critical only if it is still there when the match leaves the test
+  phase, or when a test starts.
 - **Warning:** a booth's coach PC is not found in TeamSpeak, or two TeamSpeak clients share its
   nickname.
 
@@ -434,13 +462,14 @@ live and that's all. A press is a press once live."
   banner.
 - Every test is archived, whether it passes, fails or ends at the match start.
 
-**Who sits where.** A test compares the team the panel matched with **the team at the booth**.
-The booth list carries no team, so that reference comes from (pending the owner's answer to
-§12 Q2; blind B2):
+**Who sits where.** A test compares the team the panel matched with **the team at the booth**,
+from the rule in §5.10: an admin assignment, else TeamSpeak, else ask. (Blind B2, settled by the
+owner.)
 
-1. the team whose TeamSpeak channel the booth's coach PC is in (§5.10), when known;
-2. otherwise the admin confirms each booth's team in the test modal before starting, with one
-   tap per booth.
+- **When a test starts,** the modal lists every booth's team and where it came from.
+- **A booth with no team, or a TeamSpeak-only mismatch,** must be assigned in the modal first.
+  The Assign control is right there.
+- **The modal re-reads TeamSpeak** while it is open, so a late channel move shows up.
 
 **Admin test (the "Go" button).** It opens a modal and runs two parts, recorded under one
 `test_run_id` with the admin's Home Assistant user:
@@ -767,11 +796,10 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
    2026-10-28:** a test window ends when the match starts, for both tests; once live, a press
    is a press and is forwarded. A press may be queued by the server until the next possible
    moment (§5.1, §5.4 step 8, §5.11).
-2. **Who decides which team sits at a booth, for the tests?** Should it be:
-   - the booth's coach PC's TeamSpeak channel (automatic, needs the coach PC's TeamSpeak
-     nickname);
-   - or the admin confirming each booth's team when starting a test;
-   - or both, TeamSpeak first and the admin as fallback (the design's current default)?
+2. ~~Who decides which team sits at a booth, for the tests?~~ **Answered, 2026-10-28:**
+   TeamSpeak first (it is sometimes updated late), then an admin override that **assigns** a
+   booth's team directly. Later, an admin-timer integration adds a second confirmation of the
+   channel (§4, §5.10).
 3. Names for the three new repos and integrations. Suggested: `unityintercom-hassio` with
    domain `unity_intercom`, and `coachpc` with `coachpc-hassio`.
 4. Are live-press headset confirmations ("request accepted") wanted during matches, or only in
@@ -808,7 +836,7 @@ Two checks on 2026-10-28, both on Fable 5.1 at the owner's request, read-only:
 | R15 | Coach PC: ducking, the hung-window test, a plain-HTTP API | Low | **Changed:** a per-session ducking opt-out, `IsHungAppWindow`, firewall (§7) |
 | R16 | The warm connection is only probabilistic | Low | **Changed:** a dedicated press connector, kept warm (§5.4) |
 | B1 | Forward or drop a press during a test window after go-live | High | Same as R12: decided by the owner |
-| B2 | No source of truth for the team at a booth during tests | High | **Default:** TeamSpeak channel, then the admin confirms. The owner decides (§12 Q2) |
+| B2 | No source of truth for the team at a booth during tests | High | **The owner decided (2026-10-28):** admin assignment wins, then TeamSpeak (may lag), with the admin timer as a future second check (§5.10) |
 | B3 | Panel clock sync matters to the ambiguity check | High | **Changed:** id-based, clock-free (§5.4); clocks measured in Phase 0 |
 | B4 | The status of the mockups | Medium | **Changed:** committed and sanitised; the spec wins (§5.9) |
 | B5 | Panel server ids may not survive between events | Medium | **Changed:** names stored beside ids; booth re-linking (§5.2) |

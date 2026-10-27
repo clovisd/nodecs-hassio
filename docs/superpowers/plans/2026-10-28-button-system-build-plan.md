@@ -33,8 +33,8 @@ Standing rules for every phase:
 ## Phase 0 — Verify the unknowns (no product code)
 
 **Goal:** replace the spec's assumptions with measurements (spec §10). Each item needs the
-owner's OK, because some are writes on staging. **Settle spec §12 Q2 with the owner first:**
-it changes Phase 2. (Q1 was answered on 2026-10-28.)
+owner's OK, because some are writes on staging. (Spec §12 Q1 and Q2 were answered on
+2026-10-28.)
 
 | # | What | How | Decides |
 |---|---|---|---|
@@ -112,7 +112,13 @@ where they differ from the spec, the spec wins.
 - **Test windows end when the match starts**, for both tests (the owner's rule). There is a
   "test window open" banner while one is open.
 - Archive browsing, export and the head-hash display.
-- The binding check with TeamSpeak (`ts3Clients`, read-only).
+- **The team at each booth** (spec §5.10):
+  - the per-booth **Assign** control on each matchup card, per match, archived;
+  - otherwise TeamSpeak via `ts3Clients` (read-only), re-checked continuously because channel
+    moves can lag;
+  - where each team came from shown on the card.
+- **The binding check:** a TeamSpeak-only mismatch is a warning, and becomes critical at the
+  match start or a test start.
 
 **Acceptance:**
 
@@ -162,6 +168,12 @@ starts in under 50 ms of the request.
 **Acceptance:** a full dry run on staging with two booths. The admin test runs with the walker
 hearing beeps. The coach test passes with headset beeps. A pulled headset raises a critical
 alert. The archive holds the whole run, with an intact chain.
+
+## Later — admin timer integration (not planned yet)
+
+The owner has an existing admin timer with its own API. A Home Assistant integration for it will
+add a second confirmation of each booth's TeamSpeak channel (spec §4, §5.10). It needs its own
+brainstorm once that API is known. NodeCS's team-at-booth rule already has a slot for it.
 
 ## Dependencies
 
