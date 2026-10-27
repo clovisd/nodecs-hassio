@@ -30,6 +30,11 @@ from .payloads import BASE, GRAPHQL, matches_reply, server_json, status_reply
 BASIC = "Basic YWRtaW46aHVudGVyMg=="
 
 
+@pytest.fixture(autouse=True)
+def push_channel() -> None:
+    """These tests exercise the real open_push, not the shared fake channel."""
+
+
 def _client(hass: HomeAssistant, base: str = BASE) -> NodeCSClient:
     return NodeCSClient(async_get_clientsession(hass), base, USERNAME, PASSWORD)
 

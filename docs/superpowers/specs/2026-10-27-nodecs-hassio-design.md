@@ -203,7 +203,8 @@ so a new field is a reviewed change.
 - **Transient failures:** a failed read keeps the last values for up to **6 s**, so one dropped
   request does not flip every entity to unavailable and back, which would re-fire automations
   that trigger on a state. After 6 s without a good read, every entity of that query goes
-  unavailable until the next good read.
+  unavailable until the next good read. The first failed read in a row is always tolerated, so
+  the 10 s status read also survives one dropped request.
 - **Connections are reused:** Home Assistant's shared HTTP session keeps them alive, so a poll
   does not pay for a TLS handshake.
 - **401** on a read: Home Assistant starts its re-authentication flow ("NodeCS needs its login
