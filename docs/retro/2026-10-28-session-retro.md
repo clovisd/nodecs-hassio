@@ -108,7 +108,8 @@ The owner settled four things:
 - The worst: an options change would reload the integration and drop presses for a second or
   two; the "safe" probe ID could be bound in the panel; and a hostile name on the standalone page
   could reach an admin's Home Assistant session.
-- The one left for the owner is §12 Q8: resend, or alert, when delivery can't be proven.
+- The one left for the owner was §12 Q8: resend, or alert, when delivery can't be proven. The owner
+  chose **alert, never resend**, and asked for related future features to be noted (spec §14).
 - **Lesson:** a second adversarial pass on the *answered* design found problems introduced by
   the answers themselves (the standalone page, the options). Re-run the checks after every round
   of owner decisions, not only once.
@@ -120,8 +121,8 @@ The owner settled four things:
   - a server re-listed after its device was deleted gets no entities until a reload;
   - a logo re-uploaded at the same URL isn't refetched.
 - The timeout button system: Phase 0 first (build plan).
-- Spec §12 Q8 (resend or alert when delivery can't be proven) is open. The owner answered Q3 and
-  Q5–Q7 the same day:
+- No spec §12 questions remain open (Q8: alert, never resend). The owner answered Q3 and Q5–Q7
+  the same day:
   - names `unityintercom-hassio` and `coachpc` / `coachpc-hassio`;
   - admins do everything and other users are read-only, plus a password-protected standalone
     page;

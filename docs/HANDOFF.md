@@ -12,9 +12,9 @@
      Phase 0.**
   3. `docs/design/mockups/`, the page layouts the owner approved.
   4. `docs/retro/2026-10-28-session-retro.md`, what happened and the rules it left.
-- **One design question is open:** spec §12 **Q8**, whether to resend when delivery can't be
-  proven. The default is no resend plus a critical alert. Ask the owner first. All other
-  questions are answered.
+- **All design questions are answered** (spec §12). Q8: an unproven press is never resent; it
+  raises a critical alert. Spec §14 lists future features that could change decisions like that
+  one.
 - **Next action:** Phase 0 (verify the unknowns) with the owner present. Several steps are
   writes on staging and need their OK.
 - **The repo is private** since 2026-10-28, at the owner's request. HACS cannot install or

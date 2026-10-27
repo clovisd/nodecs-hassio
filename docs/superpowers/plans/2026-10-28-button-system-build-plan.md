@@ -72,8 +72,9 @@ spec is updated where results differ.
     error types;
   - retries for 10 s, with an alert at 2 s; `429` and `408` retried, honouring `Retry-After`;
   - the press connector's DNS pinned, and kept warm by the GraphQL ids query;
-  - the newest-id seed persisted, with an "unseeded" state; the §12 Q8 policy when delivery
-    can't be proven;
+  - the newest-id seed persisted, with an "unseeded" state;
+  - when delivery can't be proven: **no resend**, and a critical "unconfirmed tac/tech pause at
+    booth X" alert that reaches the beacon even during a live match (owner, §12 Q8);
   - the id-based ambiguity check, seeded at startup;
   - the outcome read and refresh;
   - linking each `EXECUTED` press to the pause it started (`pause_started`,
@@ -216,11 +217,15 @@ starts in under 50 ms of the request.
 hearing beeps. The coach test passes with headset beeps. A pulled headset raises a critical
 alert. The archive holds the whole run, with an intact chain.
 
-## Later — admin timer integration (not planned yet)
+## Later — admin timer integration and other future features (not planned yet)
 
 The owner has an existing admin timer with its own API. A Home Assistant integration for it will
-add a second confirmation of each booth's TeamSpeak channel (spec §4, §5.10). It needs its own
-brainstorm once that API is known. NodeCS's team-at-booth rule already has a slot for it.
+add a second confirmation of each booth's TeamSpeak channel (spec §4, §5.10). It may also
+confirm that an unproven press landed. It needs its own brainstorm once that API is known.
+NodeCS's team-at-booth rule already has a slot for it.
+
+Spec §14 lists every future feature that relates to a decision in this design, and what it
+could change. Check it whenever one of them arrives.
 
 ## Dependencies
 

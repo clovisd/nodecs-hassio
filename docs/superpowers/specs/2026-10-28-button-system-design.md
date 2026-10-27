@@ -5,8 +5,9 @@
 their findings are folded in below and listed in §13. After the checks the owner answered §12
 Q1, Q2 and Q4 and added Discord webhooks (§5.13, approved "looks good"). Later the same day the
 owner answered Q3 and Q5–Q7 (names, page access with a standalone page, retention, network): no
-questions remain open, except §12 Q8, which the second red-team and blind-builder check raised
-(§13.2).
+questions remain open. §12 Q8, raised by the second red-team and blind-builder check (§13.2),
+was answered too: raise an alert, never resend. Future features that could change decisions like
+that one are listed in §14.
 **Repos:** `clovisd/nodecs-hassio` (this one, piece 1; **private since 2026-10-28**), and three
 repos that do not exist yet: `unityintercom-hassio` (piece 2), `coachpc` (piece 3) and
 `coachpc-hassio` (piece 4).
@@ -231,8 +232,8 @@ loop anywhere in NodeCS: archive hashing and fsync, page serialisation, and pass
 all run in executors (second red team 2.3). For each linked event:
 
 1. **Received:** at `t_zha`, `nodecs_button_received` fires at once with the booth, gesture,
-   panel ID, and `test_window` (whether a test window is open on that server). The lobby admin's beacon automation hangs off this event, not off the outcome.
-   (Red team R11.)
+   panel ID, and `test_window` (whether a test window is open on that server). The lobby
+   admin's beacon automation hangs off this event, not off the outcome. (Red team R11.)
 2. **Map:** `toggle` and `on` (double press) → the booth's `tap_id`; `off` → `hold_id`. Anything
    else is logged and ignored. A button not in the booth list is ignored, but shown on the page
    ("unlinked button pressed"), so a forgotten link is visible.
@@ -267,7 +268,7 @@ all run in executors (second red team 2.3). For each linked event:
      - The newest-id record is **persisted** in NodeCS's store across restarts. If the panel
        was down at boot, it is seeded on the first successful read. Until a panel ID is
        seeded, its state is **unseeded**, shown on the status strip. An unseeded ambiguous
-       press is never declared delivered: it follows the §12 Q8 policy. If Phase 0 finds the
+       press is never declared delivered: it raises the "unconfirmed" alert below. If Phase 0 finds the
        press response carries the press id, that id is used directly. (Second red team 2.5.)
      - NodeCS keeps the newest press id it has seen for each panel button ID. It seeds this at
        startup by reading `buttonPresses` for every linked ID, and updates it after each outcome
@@ -277,11 +278,13 @@ all run in executors (second red team 2.3). For each linked event:
        which Phase 0 confirms.
      - None means **resend**, and the same check repeats for up to 10 s.
    - **Proof that never comes:** the log read itself fails, 10 s pass still ambiguous, or Home
-     Assistant restarts between `press_sent` and `press_outcome`. NodeCS then follows the
-     owner's choice in §12 Q8 (resend, or a critical "unconfirmed tac at booth X" alert for the
-     admin to act on). Until the owner answers, the default is **no resend plus that critical
-     alert**, so the anti-goal "a pause executed twice" is never risked silently. (Second blind
-     check 1.)
+     Assistant restarts between `press_sent` and `press_outcome`. NodeCS **does not resend**. It
+     raises a **critical "unconfirmed tac at booth X"** alert (or "unconfirmed tech pause") for
+     the admin to check on the panel and act on. The alert names the server, team, booth and
+     time; it reaches the beacon, notifications and Discord even during a live match; and it is
+     archived. (Owner, 2026-10-28: "Raise alert". Second blind check 1.)
+   - This may change with future features (§14), for example if the panel learns to ignore a
+     duplicate request, or reports a press id in its answer.
    - `401` or `403`: the button key was refused. Failed, no retry. A repair issue and a critical
      alert are raised.
    - `429` and `408`: the panel did not take it, so they join the **never-left** retries,
@@ -1098,17 +1101,30 @@ Ranked by importance. Q1 and Q2 came from the red-team and blind checks.
 6. ~~Retention.~~ **Answered, 2026-10-28:** never delete.
 7. ~~Network.~~ **Answered, 2026-10-28:** a separate VLAN players cannot reach.
 
-8. **Open (raised by the second blind check): when NodeCS cannot prove whether a press
-   landed,** which way should it lean? This covers three cases: the log read fails, 10 s pass
-   still ambiguous, or Home Assistant restarted mid-press.
-   - **Resend:** never miss a press, at the risk of a second timeout.
-   - **Don't resend:** raise a critical "unconfirmed tac at booth X" alert for the admin to
-     act on. This is the current default, so a double pause is never risked silently.
+8. ~~When NodeCS cannot prove whether a press landed, resend or alert?~~ **Answered,
+   2026-10-28:** "Raise alert, make note if we have features in the future it could be related."
+   NodeCS never resends an unproven press; it raises a critical alert (§5.4). The related
+   future features are in §14.
 
-   Phase 0.1 shows whether the panel ignores a second request while one is pending. If it does,
-   resending is safe and this question goes away.
+All questions are answered.
 
-All other questions are answered.
+## 14. Later: future features, and what they could change
+
+None of these are designed or planned. Each is recorded because it relates to a decision above,
+which should be revisited when it arrives. (Owner, 2026-10-28: "make note if we have features in
+the future it could be related.")
+
+| Future feature | Where it would come from | What it could change |
+|---|---|---|
+| **The admin timer integration** | An existing tool with its own API; a Home Assistant integration for it (owner, 2026-10-28) | A second confirmation of each booth's TeamSpeak channel, turning "from TeamSpeak" into "confirmed" (§5.10). If it also knows when timeouts are called or running, it could confirm that an unproven press landed, and clear the "unconfirmed tac" alert automatically (§5.4, §12 Q8). |
+| **The panel ignores a duplicate request** | Measured in Phase 0.1, or a future panel change | If a second request for the same team and kind is ignored while one is pending or running, resending an unproven press becomes safe. The Q8 policy could then become "resend, then alert" (§5.4). |
+| **The press answer carries the press id**, or the panel accepts an idempotency key | Measured in Phase 0.1, or a future panel change | Delivery could be proven directly, without the log read and its ambiguity. With an idempotency key, a resend can never double-execute (§5.4, §5.6). |
+| **Pending requests visible in the panel API** | A future panel change | "Requested, waiting for the server" (§5.4 step 8) could be read, not inferred, and pause links would no longer be "probable". |
+| **More coach sounds** | The owner: "we can expand later" | A distinct sound for a tech pause, a failure, or the pause starting (§5.11). The coach PC API already takes a sound name (§7.3). |
+| **Automatic bindings** | The owner: "For now, keep it manual" | Home Assistant writing bindings from the team-at-booth rule, which would remove the wrong-binding class of error (§5.10). Needs the owner's approval for panel writes. |
+| **A faster button** | A hardware choice | A button that reports a press immediately would remove the SNZB-01P's ~0.6 s tap delay (§5.3). |
+| **Button outages from the panel** | `buttonOutages`, already on staging | A panel-side view of button health, alongside ZHA's (§5.8). |
+| **NodeCS public again** | The owner | HACS installs and the HACS check in CI resume (the CI job skips itself while the repo is private). The no-names rule already keeps the repo ready for that. |
 
 ## 13. Review findings folded in
 
@@ -1175,7 +1191,7 @@ build plan, both on Fable 5.1, read-only.
 | 2.13 | Discord: a shared URL, test tacs delaying live ones, restarts losing state, competitive info, data off-site, a separate session | Medium | **Changed:** a shared sender, live tacs first, persisted ids and queue, an admin-only channel note, redaction, its own session (§5.13) |
 | 2.14 | Session hygiene; route collision with the frontend | Low | **Changed:** logout, an operator idle timeout, a fresh token per login, cookie path, SSE caps and headers, the `/nodecs-board/` path (§5.9, §5.9.1) |
 | 2.15 | The keep-warm request was unspecified | Low | **Changed:** the GraphQL ids query on the press connector (§5.4) |
-| B2.1 | What to do when delivery can't be proven | High | **The owner's call: §12 Q8.** Default: no resend plus a critical alert |
+| B2.1 | What to do when delivery can't be proven | High | **The owner decided (2026-10-28):** raise a critical alert, never resend; related future features noted in §14 |
 | B2.2 | NodeCS's own press mistaken for foreign | High | **Changed:** a persisted unmatched-send ledger with 60 s attribution (§5.6) |
 | B2.3 | How the page ships | High | **Changed:** dependency-free ES modules, no build step (§5.9) |
 | B2.4 | Keep-warm on the press endpoint | Medium | Same as 2.15 |
