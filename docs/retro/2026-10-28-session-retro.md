@@ -88,6 +88,19 @@ Brainstormed with the owner, with mockups in the visual companion, then document
 | The final review was a self-review | Weaker than a fresh reviewer | The owner now wants red-team and blind checks on Fable 5.1 for designs; ask whether the same applies to code reviews |
 | The live-match flag on staging (`liveAt` set while in `WARMUP`) showed a restored match's state can mislead | Would have made tests unsafe | Gate tests on the panel's own rule, verified in Phase 0 |
 
+## After the checks, the same day
+
+The owner settled four things:
+
+- **Test windows** end when the match starts. A live press is always forwarded, and the server
+  may queue the pause it requests.
+- **The team at a booth:** an admin assignment wins, then TeamSpeak (which can lag). An
+  admin-timer integration comes later as a second check.
+- **Sounds:** one short beep, for an accepted tac and a passed coach-test hold; nothing else for
+  now.
+- **Discord webhooks:** a tac channel, plus an all-messages channel with a chosen level. Both
+  are optional, and neither is ever in the press path.
+
 ## Open items carried forward
 
 - NodeCS v0.1 deferred minors:
@@ -95,4 +108,5 @@ Brainstormed with the owner, with mockups in the visual companion, then document
   - a server re-listed after its device was deleted gets no entities until a reload;
   - a logo re-uploaded at the same URL isn't refetched.
 - The timeout button system: Phase 0 first (build plan).
-- Spec §12 questions for the owner.
+- Spec §12 Q3 (repo names), Q5 (page access), Q6 (retention), Q7 (network separation).
+- The `docs/button-system` branch is local, not merged or pushed. The owner decides when.

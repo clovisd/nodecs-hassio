@@ -2,8 +2,9 @@
 
 **Date:** 2026-10-28 · **Status:** design agreed in conversation with the owner ("Looks good",
 2026-10-28); not built. Red-team and blind-builder checks (Fable 5.1) were run on the first draft;
-their findings are folded in below and listed in §13. Two questions they raised are the owner's
-(§12, Q1–Q2).
+their findings are folded in below and listed in §13. After the checks the owner answered §12
+Q1, Q2 and Q4 and added Discord webhooks (§5.13, approved "looks good"); §12 Q3 and Q5–Q7 stay
+open.
 **Repos:** `clovisd/nodecs-hassio` (this one, piece 1), and three repos that do not exist yet
 (pieces 2–4; names in §12).
 **Builds on:** `2026-10-27-nodecs-hassio-design.md` (NodeCS v0.1, read-only, shipped).
@@ -607,6 +608,9 @@ none of that may affect a press.
   Discord is still in the archive.
 - **Privacy:** team names, booth names and Home Assistant user names leave the venue LAN through
   Discord. The owner chooses this by entering a URL. The README says so.
+
+The owner approved this section's content on 2026-10-28 ("looks good"), including failed and
+test tacs in the tac channel, and the edit when the pause starts.
 
 ---
 
