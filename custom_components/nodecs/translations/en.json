@@ -11,7 +11,7 @@
           "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
-          "url": "For example https://panel.example.lan. A pasted dashboard address works too.",
+          "url": "The address you open the panel at. A host name alone, or a pasted dashboard address, works too.",
           "verify_ssl": "Untick for a panel whose certificate Home Assistant does not trust."
         }
       },
@@ -30,13 +30,13 @@
           "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
-          "url": "For example https://panel.example.lan.",
+          "url": "The address you open the panel at.",
           "verify_ssl": "Untick for a panel whose certificate Home Assistant does not trust."
         }
       }
     },
     "error": {
-      "invalid_url": "Enter the panel's web address, such as https://panel.example.lan.",
+      "invalid_url": "Enter the panel's web address or host name.",
       "cannot_connect": "The panel did not answer.",
       "certificate_error": "The panel's certificate is not trusted. If it uses your event's own certificate, untick Verify SSL certificate.",
       "invalid_auth": "The panel refused this username or password.",
