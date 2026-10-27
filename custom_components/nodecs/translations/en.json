@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the panel",
+        "description": "The panel's address and the login you use for its web page. Untick **Verify SSL certificate** if the panel uses your event's own certificate.",
+        "data": {
+          "url": "URL",
+          "username": "Username",
+          "password": "Password",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example https://panel.example.lan. A pasted …/api/ui/graphql/query address works too.",
+          "verify_ssl": "Untick for a panel whose certificate Home Assistant does not trust."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Log in to the panel again",
+        "description": "The panel at {url} refused the saved login.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Change the panel's address",
+        "data": {
+          "url": "URL",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example https://panel.example.lan.",
+          "verify_ssl": "Untick for a panel whose certificate Home Assistant does not trust."
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter the panel's address, such as https://panel.example.lan, without a page path.",
+      "cannot_connect": "The panel did not answer.",
+      "certificate_error": "The panel's certificate is not trusted. If it uses your event's own certificate, untick Verify SSL certificate.",
+      "invalid_auth": "The panel refused this username or password.",
+      "invalid_reply": "That address answered, but not like the panel's API.",
+      "unknown": "Unexpected error; see the Home Assistant log."
+    },
+    "abort": {
+      "already_configured": "This panel is already set up.",
+      "reauth_successful": "The new login works.",
+      "reconfigure_successful": "The panel's address is updated."
+    }
+  }
+}
