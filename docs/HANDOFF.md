@@ -15,6 +15,12 @@
      Phase 0.**
   3. `docs/design/mockups/`, the page layouts the owner approved.
   4. `docs/retro/2026-10-28-session-retro.md`, what happened and the rules it left.
+  5. `docs/reviews/`, the four check reports in full: both red-team rounds and both blind
+     builder rounds, on Fable 5.1. The spec's §13 tables say what was done with each finding.
+  6. `docs/reference/panel-api.md`, the panel's API: endpoints, observed behaviour, and the
+     typed schema for every type NodeCS touches.
+  7. `tools/phase0/`, the read-only probe scripts (query timing, a client check, a push-channel
+     listener) for Phase 0. They were cleaned after their last live run and not re-run since.
 - **All design questions are answered** (spec §12). Q8: an unproven press is never resent; it
   raises a critical alert. Spec §14 lists future features that could change decisions like that
   one.
