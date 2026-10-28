@@ -121,6 +121,9 @@ The owner settled four things:
   - a server re-listed after its device was deleted gets no entities until a reload;
   - a logo re-uploaded at the same URL isn't refetched.
 - The timeout button system: Phase 0 first (build plan).
+- blinkybeacon-hassio: a README troubleshooting note was offered and not yet written. It would
+  say that the tray's `dashboard` build resets the light on every poll (2 s) while a dashboard
+  URL and token are set, so beacons stop after 1–2 s. Small, optional; ask the owner.
 - No spec §12 questions remain open (Q8: alert, never resend). The owner answered Q3 and Q5–Q7
   the same day:
   - names `unityintercom-hassio` and `coachpc` / `coachpc-hassio`;
@@ -129,4 +132,13 @@ The owner settled four things:
   - the archive is never deleted;
   - Home Assistant, the panel and the coach PCs are on a separate VLAN.
 - The repo was made **private** on 2026-10-28, at the owner's request. HACS can't install it
-  while private.
+  while private. The CI's HACS check skips itself while private, and the README says to install
+  by hand.
+
+## End state of the session
+
+- **main (private):** NodeCS v0.1.0, plus the full design, build plan, mockups, this retro and
+  the handoff. CI green.
+- **Built and shipped:** blinkybeacon-hassio v0.1.0 (public) and NodeCS v0.1.0.
+- **Designed, not built:** the timeout button system. It starts with Phase 0, with the owner
+  present.

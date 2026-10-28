@@ -60,7 +60,9 @@ and its device can then be deleted.
 
 ## Installing
 
-Through [HACS](https://hacs.xyz/):
+> While this repository is private, HACS can't install it: install by hand (below).
+
+Through [HACS](https://hacs.xyz/), when the repository is public:
 
 1. HACS → ⋮ → **Custom repositories** → add `https://github.com/clovisd/nodecs-hassio` with
    type **Integration**.

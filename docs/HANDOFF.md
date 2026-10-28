@@ -2,12 +2,15 @@
 
 ## Where things stand (2026-10-28)
 
-- **NodeCS v0.1.0 is shipped.** It is public, installs through HACS, and is read-only: servers,
-  matches and pauses as devices, push first with a 1 s backstop. Spec:
-  `docs/superpowers/specs/2026-10-27-nodecs-hassio-design.md`.
+- **NodeCS v0.1.0 is shipped:** read-only, with servers, matches and pauses as devices, push
+  first with a 1 s backstop. Spec: `docs/superpowers/specs/2026-10-27-nodecs-hassio-design.md`.
+  It was public and installed through HACS until 2026-10-28; the repo is now private (below), so
+  install by hand.
 - **The timeout button system is designed, not built.** Read in this order:
-  1. `docs/superpowers/specs/2026-10-28-button-system-design.md`, the spec. §13 holds the
-     red-team and blind-builder findings.
+  1. `docs/superpowers/specs/2026-10-28-button-system-design.md`, the spec:
+     - §12 has the owner's answers;
+     - §13 and §13.2 hold both rounds of red-team and blind-builder findings;
+     - §14 lists future features and what each could change.
   2. `docs/superpowers/plans/2026-10-28-button-system-build-plan.md`, the phases. **Start with
      Phase 0.**
   3. `docs/design/mockups/`, the page layouts the owner approved.
@@ -21,7 +24,10 @@
   update NodeCS while it is private. The no-names rule still applies, in case it goes public
   again.
 - **Later:** an admin-timer integration (an existing tool with its own API) as a second check on
-  booth teams; it needs its own brainstorm.
+  booth teams; it needs its own brainstorm. See spec §14 for the rest.
+- **Where it lives:** everything is on `main` in the private repo, and CI is green (hassfest,
+  tests, lint; the HACS check skips itself while private). The `docs/button-system` branch is
+  merged and mirrors `main`.
 
 ## Rules the owner set
 
