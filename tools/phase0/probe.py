@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 from pathlib import Path
+import ssl
 import sys
 import time
 
@@ -14,9 +16,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from custom_components.nodecs.api import NodeCSClient, NodeCSError  # noqa: E402
 
 
-async def main(base: str, auth_file: str) -> None:
-    user, password = Path(auth_file).read_text().strip().split(":", 1)
-    connector = aiohttp.TCPConnector(ssl=False)
+def tls(args: argparse.Namespace) -> ssl.SSLContext | bool:
+    """Verify the panel's certificate by default; --cafile pins the event's CA."""
+    if args.insecure:
+        print("WARNING: TLS verification is OFF (--insecure)", file=sys.stderr)
+        return False
+    if args.cafile:
+        return ssl.create_default_context(cafile=args.cafile)
+    return True
+
+
+def parser(description: str) -> argparse.ArgumentParser:
+    """The arguments every probe takes."""
+    parse = argparse.ArgumentParser(description=description)
+    parse.add_argument(
+        "base", help="the panel's base URL, e.g. https://panel.example.lan"
+    )
+    parse.add_argument("authfile", help="a file holding one line, user:password")
+    parse.add_argument(
+        "--cafile", help="PEM file of the CA that signed the panel's cert"
+    )
+    parse.add_argument(
+        "--insecure", action="store_true", help="skip TLS verification (last resort)"
+    )
+    return parse
+
+
+async def main(args: argparse.Namespace) -> None:
+    base = args.base
+    user, password = Path(args.authfile).read_text().strip().split(":", 1)
+    connector = aiohttp.TCPConnector(ssl=tls(args))
     async with aiohttp.ClientSession(connector=connector) as session:
         client = NodeCSClient(session, base, user, password)
 
@@ -69,6 +98,4 @@ async def main(base: str, auth_file: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        sys.exit("usage: probe.py <panel base URL> <auth file with user:password>")
-    asyncio.run(main(sys.argv[1], sys.argv[2]))
+    asyncio.run(main(parser(__doc__).parse_args()))

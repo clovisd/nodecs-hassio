@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import base64
 from pathlib import Path
+import ssl
 import sys
 import time
 
@@ -14,14 +16,41 @@ from yarl import URL
 PUSH_PATH = "/api/ui/notifications/subscribe"
 
 
-async def main(base: str, auth_file: str, seconds: float) -> None:
-    credentials = Path(auth_file).read_text().strip()
+def tls(args: argparse.Namespace) -> ssl.SSLContext | bool:
+    """Verify the panel's certificate by default; --cafile pins the event's CA."""
+    if args.insecure:
+        print("WARNING: TLS verification is OFF (--insecure)", file=sys.stderr)
+        return False
+    if args.cafile:
+        return ssl.create_default_context(cafile=args.cafile)
+    return True
+
+
+def parser(description: str) -> argparse.ArgumentParser:
+    """The arguments every probe takes."""
+    parse = argparse.ArgumentParser(description=description)
+    parse.add_argument(
+        "base", help="the panel's base URL, e.g. https://panel.example.lan"
+    )
+    parse.add_argument("authfile", help="a file holding one line, user:password")
+    parse.add_argument(
+        "--cafile", help="PEM file of the CA that signed the panel's cert"
+    )
+    parse.add_argument(
+        "--insecure", action="store_true", help="skip TLS verification (last resort)"
+    )
+    return parse
+
+
+async def main(args: argparse.Namespace) -> None:
+    base, seconds = args.base, args.seconds
+    credentials = Path(args.authfile).read_text().strip()
     headers = {
         "Authorization": "Basic " + base64.b64encode(credentials.encode()).decode()
     }
     url = URL(base)
     url = url.with_scheme("wss" if url.scheme == "https" else "ws").with_path(PUSH_PATH)
-    connector = aiohttp.TCPConnector(ssl=False)
+    connector = aiohttp.TCPConnector(ssl=tls(args))
     async with aiohttp.ClientSession(connector=connector) as session:
         started = time.monotonic()
         try:
@@ -47,10 +76,6 @@ async def main(base: str, auth_file: str, seconds: float) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (3, 4):
-        sys.exit(
-            "usage: ws_listen.py <panel base URL> <auth file (user:password)> [seconds]"
-        )
-    asyncio.run(
-        main(sys.argv[1], sys.argv[2], float(sys.argv[3]) if len(sys.argv) == 4 else 60)
-    )
+    arguments = parser(__doc__)
+    arguments.add_argument("seconds", nargs="?", type=float, default=60)
+    asyncio.run(main(arguments.parse_args()))
