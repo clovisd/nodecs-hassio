@@ -27,8 +27,14 @@
 - **Next action:** Phase 0 (verify the unknowns) with the owner present. Several steps are
   writes on staging and need their OK.
 - **The repo is private** since 2026-10-28, at the owner's request. HACS cannot install or
-  update NodeCS while it is private. The no-names rule still applies, in case it goes public
-  again.
+  update NodeCS while it is private.
+- **The work moved fully to GitHub** on 2026-10-28 ("include everything into the github, we're
+  moving over fully"). `docs/context/` has the rest:
+  - the redacted session transcript;
+  - the assistant's memory notes;
+  - the raw exploration;
+  - the brainstorm screens;
+  - **the real names and hosts** (`docs/context/README.md`). The staging URL is there.
 - **Later:** an admin-timer integration (an existing tool with its own API) as a second check on
   booth teams; it needs its own brainstorm. See spec §14 for the rest.
 - **Where it lives:** everything is on `main` in the private repo, and CI is green (hassfest,
@@ -37,8 +43,12 @@
 
 ## Rules the owner set
 
-- **No names in the repo** (private now, possibly public later): never name the panel's
-  product, the event, its hosts or real teams. Say "the panel".
+- **Names:** real names and hosts are allowed while the repo is private (owner, 2026-10-28).
+  **Before it is ever made public**, scrub the history of everything in
+  `docs/context/leak-patterns.txt`. Until then, new design docs may keep saying "the panel"; it
+  costs nothing and keeps the scrub small.
+- **Credentials are never committed:** not the panel login, not the button key, not webhook
+  URLs or coach PC tokens. The owner hands them to each session.
 - **The panel:** use staging, never production, and stay read-only unless the owner approves a
   specific write. Credentials come from the owner in the session; never store them anywhere.
 - **Coach PCs:** zero impact on TeamSpeak (spec §7.1).
@@ -65,12 +75,17 @@
   a hung fixture.
 - **GitHub CLI:** `~/.local/bin/gh` (not on PATH). Logged in as the owner.
 - **Git author:** repo-local, `clovisd <clovisdelmotte@gmail.com>`.
-- **Leak scan:** the pattern list lives **outside** any repo, at `~/.config/nodecs/leak-patterns.txt`.
-  Run before every commit and push:
+- **Credential check, before every commit:** grep the staged diff for the actual credential
+  values you were given this session. They must never appear.
   ```bash
-  git log -p --all | grep -i -c -F -f ~/.config/nodecs/leak-patterns.txt   # must print 0
-  git ls-files -z | xargs -0 grep -i -l -F -f ~/.config/nodecs/leak-patterns.txt  # must print nothing
+  git diff --cached | grep -c -F -e '<password>' -e '<button key>'   # must print 0
   ```
+- **Before going public** (not needed while private): this lists every file or commit that
+  still names something on the list.
+  ```bash
+  git log -p --all | grep -i -c -F -f docs/context/leak-patterns.txt
+  ```
+  Then rewrite the history (for example with `git filter-repo`) until it prints 0.
 - **CI:** hassfest, HACS, pytest and ruff. hassfest rejects URLs inside `strings.json`.
 
 ## Related repos

@@ -1,0 +1,11 @@
+query($a: Boolean) {
+  cs2Matches(archived: $a) {
+    id index phase bestOfX bestOfXAScore bestOfXBScore
+    teamA { id name } teamB { id name } map { name map }
+    teamAScore teamBScore teamATimeoutsUsed teamBTimeoutsUsed teamATimeoutsLeft teamBTimeoutsLeft
+    insertedAt assignedAt liveAt endedAt archivedAt
+    server { id name }
+    pauses { id reason startedAt endedAt team { id name } }
+    buttonBindings { buttonID action team }
+  }
+}

@@ -135,6 +135,20 @@ The owner settled four things:
   while private. The CI's HACS check skips itself while private, and the README says to install
   by hand.
 
+## Moving over fully
+
+On 2026-10-28 the owner asked to "include everything into the github, we're moving over fully".
+The repo became private and gained `docs/context/`:
+
+- the redacted transcript;
+- every memory note;
+- the raw exploration with real data;
+- the brainstorm screens;
+- the real names and hosts.
+
+Credentials stayed out; the owner passes them to the next agent themselves. The old "no names"
+rule became "scrub before going public".
+
 ## End state of the session
 
 - **main (private):** NodeCS v0.1.0, plus the full design, build plan, mockups, this retro and

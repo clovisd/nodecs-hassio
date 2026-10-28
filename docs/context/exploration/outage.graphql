@@ -1,0 +1,1 @@
+query { o: __type(name: "ButtonOutage") { fields { name type { kind name ofType { kind name } } } } b: buttons { id firstSeenAt lastPressedAt } p: buttonPresses(limit: 5) { buttonID pressedAt outcome detail } }

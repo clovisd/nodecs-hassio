@@ -1,0 +1,67 @@
+<h2>Admin test: the modal "Go" opens</h2>
+<p class="subtitle">Path check first, then the walk-round, in one window. Each run is saved for good, with who ran it. The numbers are made up; anything marked "guess" is mine to confirm.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Admin test · Server A.1 · Alpha vs Bravo · warmup</div>
+  <div class="mockup-body" style="font-size:13px">
+
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div>Started 21:58:10 by <b>admin</b> · test #42</div>
+      <div><b style="color:#c98a00">In progress</b> · 5 of 6 checks passed</div>
+    </div>
+
+    <div style="border:1px solid rgba(127,127,127,.35);border-radius:8px;padding:10px;margin-bottom:10px">
+      <strong>1 · Path check</strong> <span style="opacity:.7">(Home Assistant sends a test press for every bound ID to the panel)</span>
+      <table style="width:100%;margin-top:6px;border-collapse:collapse">
+        <tr style="text-align:left;opacity:.7"><th>Panel ID</th><th>Binding</th><th>Sent → answered</th><th>Panel's verdict</th><th></th></tr>
+        <tr><td>a1-left-tac</td><td>Tac pause · Alpha</td><td>21:58:10.204 → .241 (37 ms)</td><td>test · "tac pause for Alpha (reported only)"</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-left-tech</td><td>Tech pause · Alpha</td><td>21:58:10.243 → .281 (38 ms)</td><td>test · "tech pause for Alpha (reported only)"</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-right-tac</td><td>Tac pause · Bravo</td><td>21:58:10.283 → .330 (47 ms)</td><td>test · "tac pause for Bravo (reported only)"</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>a1-right-tech</td><td>Tech pause · Bravo</td><td>21:58:10.332 → .371 (39 ms)</td><td>test · "tech pause for Bravo (reported only)"</td><td style="color:#2e9e5b">✓</td></tr>
+      </table>
+    </div>
+
+    <div style="border:1px solid rgba(127,127,127,.35);border-radius:8px;padding:10px;margin-bottom:10px">
+      <strong>2 · Walk-round</strong> <span style="opacity:.7">(press each physical button, each gesture)</span>
+      <table style="width:100%;margin-top:6px;border-collapse:collapse">
+        <tr style="text-align:left;opacity:.7"><th>Button</th><th>Gesture</th><th>Received (HA)</th><th>→ panel</th><th>Panel matched to</th><th>Signal at press</th><th></th></tr>
+        <tr><td>Booth A1 left</td><td>short</td><td>21:58:31.010</td><td>39 ms</td><td>Tech pause · Alpha</td><td>LQI 212 / −58 dBm</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>Booth A1 left</td><td>long</td><td>21:58:34.877</td><td>41 ms</td><td>Tac pause · Alpha</td><td>LQI 208 / −59 dBm</td><td style="color:#2e9e5b">✓</td></tr>
+        <tr><td>Booth A1 right</td><td>short</td><td>—</td><td>—</td><td>—</td><td>LQI 96 / −81 dBm ⚠</td><td style="color:#c98a00">⏳ press now</td></tr>
+        <tr><td>Booth A1 right</td><td>long</td><td>—</td><td>—</td><td>—</td><td></td><td style="color:#c98a00">⏳</td></tr>
+      </table>
+    </div>
+
+    <div style="border:1px solid rgba(127,127,127,.35);border-radius:8px;padding:10px;margin-bottom:10px">
+      <strong>Warnings</strong>
+      <ul style="margin:6px 0 0 18px">
+        <li>Booth A1 right: weak signal (LQI 96). It routes through "Router B2". Consider a closer router before going live.</li>
+      </ul>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="mock-button">Repeat a step</button>
+      <button class="mock-button">Mark as failed, with a note</button>
+      <button class="mock-button">Export (CSV)</button>
+      <button class="mock-button">Close (the run stays in the archive)</button>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:22px">Two calls I'd make. Click any you disagree with.</h3>
+<div class="options" data-multiselect>
+  <div class="option" data-choice="blocked-live" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>No admin test while the match is live</h3>
+      <p>Once the match is live, a test press is a real pause, so "Go" is disabled.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="archive-all" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>The archive keeps every real press too</h3>
+      <p>Not only tests: every press in a match, with its timings and outcome, kept for good and exportable.</p>
+    </div>
+  </div>
+</div>

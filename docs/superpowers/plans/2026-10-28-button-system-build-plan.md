@@ -20,8 +20,9 @@ repo it changes.
 
 Standing rules for every phase:
 
-- No product, event, host or real-team names in any public repo or its history. Scan the full
-  history before every push, with the pattern list kept outside the repo (see `docs/HANDOFF.md`).
+- Real names are allowed while repos are private. Before any repo is made public, scrub its
+  history with `docs/context/leak-patterns.txt` (see `docs/HANDOFF.md`). Credentials are never
+  committed, anywhere.
 - Nothing writes to the panel without the owner's explicit approval for that kind of write.
   Use staging, never production.
 - Credentials come from the owner during the session. They are never stored in repos, memory
@@ -119,7 +120,7 @@ spec is updated where results differ.
   - a Discord outage or a `429` never delays a press;
   - a tac message is edited when its pause starts.
 - The chain verifies across two days.
-- Leak scan clean; CI green.
+- No credentials in the diff; CI green.
 
 ## Phase 2 — NodeCS v0.2b: the readiness page and tests
 

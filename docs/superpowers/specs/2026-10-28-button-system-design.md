@@ -13,9 +13,9 @@ repos that do not exist yet: `unityintercom-hassio` (piece 2), `coachpc` (piece 
 `coachpc-hassio` (piece 4).
 **Builds on:** `2026-10-27-nodecs-hassio-design.md` (NodeCS v0.1, read-only, shipped).
 
-This repo never names the panel's product, the event, its hosts, or real teams. It says "the
-panel". It is private for now, but may go public again, so keep it that way in every document
-and commit.
+This document says "the panel" rather than the product's name. Since 2026-10-28 the repo is
+private and real names live in `docs/context/README.md`. Its history must be scrubbed before it is
+ever made public. Credentials are never committed.
 
 ---
 
@@ -1124,7 +1124,7 @@ the future it could be related.")
 | **Automatic bindings** | The owner: "For now, keep it manual" | Home Assistant writing bindings from the team-at-booth rule, which would remove the wrong-binding class of error (§5.10). Needs the owner's approval for panel writes. |
 | **A faster button** | A hardware choice | A button that reports a press immediately would remove the SNZB-01P's ~0.6 s tap delay (§5.3). |
 | **Button outages from the panel** | `buttonOutages`, already on staging | A panel-side view of button health, alongside ZHA's (§5.8). |
-| **NodeCS public again** | The owner | HACS installs and the HACS check in CI resume (the CI job skips itself while the repo is private). The no-names rule already keeps the repo ready for that. |
+| **NodeCS public again** | The owner | HACS installs and the HACS check in CI resume (the CI job skips itself while the repo is private). First scrub the history of everything in `docs/context/leak-patterns.txt` (real names were added on 2026-10-28). |
 
 ## 13. Review findings folded in
 

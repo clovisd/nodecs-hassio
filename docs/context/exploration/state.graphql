@@ -1,0 +1,17 @@
+query {
+  cs2Servers {
+    id name status
+    match {
+      id index phase bestOfX bestOfXAScore bestOfXBScore pickSidesMode
+      teamA { id name flag logoUrl } teamB { id name flag logoUrl }
+      map { id name map logoUrl }
+      teamAReady teamBReady teamAScore teamBScore
+      teamATimeoutsUsed teamBTimeoutsUsed teamATimeoutsLeft teamBTimeoutsLeft
+      insertedAt assignedAt liveAt endedAt archivedAt
+      pauses { id reason startedAt endedAt team { id name } }
+      buttonBindings { id buttonID action team }
+    }
+  }
+  buttons { id firstSeenAt lastPressedAt }
+  buttonPresses(limit: 15) { id buttonID pressedAt outcome detail match { id } }
+}

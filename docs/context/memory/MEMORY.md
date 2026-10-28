@@ -1,0 +1,8 @@
+- [pgl.ro network DNS](pgl-network-dns.md) — internal DNS 10.97.62.6/.7, AAAA stripped, WSL proxy wedges
+- [Grandglise UniFi audit](grandglise-unifi-audit.md) — 4G-capped UCG Max + Protect site, 4 XMeye ONVIF cams, docs at docs.cl6.us
+- [UniFi API access notes](unifi-api-access-notes.md) — what an API key can read/write on UniFi OS, firewall policy and settings write paths
+- [Delmotte WiFi diagnosis](delmotte-wifi-diagnosis.md) — laptop on TP6-01 gets IP but ~98% loss; WPA2-only no help; suspect AX210/EAP610 11ax interop
+- [Tournament PC scripts](tournament-pc-scripts.md) — ~/tournament-pc-scripts git project; ssd/ deploys to Downloads\SSD; tests via cmd.exe
+- [Monitor profile tool](monitor-profile-tool.md) — MonitorProfile.exe is the pro/debug tool; PGL Display Tool designed and planned (repo docs/HANDOFF.md), not built, handed off 2026-10-27
+- [BlinkyBeacon HA integration](blinkybeacon-hassio.md) — ~/blinkybeacon-hassio, HACS integration driving beacon trays; step 1 of CS timeout buttons
+- [NodeCS HA integration](nodecs-hassio.md) — ~/nodecs-hassio (private), CS2 panel integration; v0.2 button system designed, see docs/HANDOFF.md

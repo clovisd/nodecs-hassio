@@ -1,0 +1,15 @@
+fragment T on __Type { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name } } } } }
+query {
+  q: __type(name: "Query") { fields { name args { name type { ...T } } type { ...T } } }
+  m: __type(name: "Mutation") { fields { name args { name type { ...T } } type { ...T } } }
+  s: __schema { subscriptionType { name } }
+  srv: __type(name: "CS2Server") { fields { name type { ...T } } }
+  mat: __type(name: "CS2Match") { fields { name args { name type { ...T } } type { ...T } } }
+  pau: __type(name: "CS2MatchPause") { fields { name type { ...T } } }
+  team: __type(name: "Team") { fields { name type { ...T } } }
+  map: __type(name: "CS2Map") { fields { name type { ...T } } }
+  btn: __type(name: "Button") { fields { name type { ...T } } }
+  bb: __type(name: "ButtonBinding") { fields { name type { ...T } } }
+  bp: __type(name: "ButtonPress") { fields { name type { ...T } } }
+  bbi: __type(name: "ButtonBindingInput") { inputFields { name type { ...T } } }
+}

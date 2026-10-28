@@ -1,0 +1,15 @@
+query HomeAssistantState {
+  cs2Servers {
+    id name status
+    match {
+      id phase bestOfX bestOfXAScore bestOfXBScore
+      teamA { id name logoUrl } teamB { id name logoUrl }
+      map { name logoUrl }
+      teamAReady teamBReady teamAScore teamBScore
+      teamATimeoutsUsed teamBTimeoutsUsed teamATimeoutsLeft teamBTimeoutsLeft
+      assignedAt liveAt endedAt
+      pauses { reason startedAt endedAt team { id } }
+      buttonBindings { buttonID action team }
+    }
+  }
+}
